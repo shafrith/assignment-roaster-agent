@@ -1,0 +1,36 @@
+# Production behind an existing Traefik (Docker provider + "letsencrypt" cert resolver).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
+# Required in .env: ROASTER_DOMAIN (e.g. roaster.example.com, DNS pointing at this host),
+# FRONTEND_URL=https://${ROASTER_DOMAIN} and VITE_API_URL=https://${ROASTER_DOMAIN}.
+#
+# Traefik serves one HTTPS origin: /api and /health go to the backend, everything else to the
+# frontend. No host ports are published, so nothing clashes with other apps on the server.
+services:
+  backend:
+    ports: !reset []
+    environment:
+      # Traefik reaches the containers from this network's gateway; trust only it for
+      # X-Forwarded-For so per-client rate limits and quotas see the real client IP.
+      FORWARDED_ALLOW_IPS: ${ROASTER_PROXY_IP:-172.16.10.1}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.roaster-api.entrypoints=websecure
+      - traefik.http.routers.roaster-api.rule=Host(`${ROASTER_DOMAIN}`) && (PathPrefix(`/api`) || Path(`/health`))
+      - traefik.http.routers.roaster-api.tls.certresolver=letsencrypt
+      - traefik.http.services.roaster-api.loadbalancer.server.port=8000
+
+  frontend:
+    ports: !reset []
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.roaster-web.entrypoints=websecure
+      - traefik.http.routers.roaster-web.rule=Host(`${ROASTER_DOMAIN}`)
+      - traefik.http.routers.roaster-web.tls.certresolver=letsencrypt
+      - traefik.http.services.roaster-web.loadbalancer.server.port=3000
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${ROASTER_SUBNET:-172.16.10.0/24}
