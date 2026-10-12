@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-roaster}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-assignment_roaster}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-roaster}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-assignment_roaster}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      # This is the production stack: always run in production mode (Secure cookies, startup
+      # checks that reject the placeholder SECRET_KEY / non-https FRONTEND_URL). It deliberately
+      # overrides ENVIRONMENT from .env. For local hacking use docker-compose.dev.yml.
+      ENVIRONMENT: production
+      # Proxy IPs/CIDRs whose X-Forwarded-For uvicorn trusts (see backend/entrypoint.sh).
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-127.0.0.1}
+      MAX_CONCURRENT_ROASTS: ${MAX_CONCURRENT_ROASTS:-3}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Loopback only: expose the API publicly through your TLS reverse proxy, not directly.
+      - "127.0.0.1:8000:8000"
+    # Pipelines run in-process (BackgroundTasks); cap memory so a runaway can't take the host.
+    mem_limit: 1g
+    pids_limit: 256
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:3000:3000"
+    mem_limit: 256m
+
+volumes:
+  postgres_data:

@@ -1,0 +1,14 @@
+# FastAPI >=0.120 resolves Starlette >=0.47.2 (CVE-2024-47874, CVE-2025-54121); the explicit
+# starlette floor keeps that guarantee even if the FastAPI range is relaxed later.
+fastapi>=0.120,<1.0
+starlette>=0.47.2
+uvicorn[standard]>=0.30,<1.0
+sqlalchemy>=2.0.30,<2.1
+alembic>=1.13,<2.0
+psycopg[binary]>=3.2,<4.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+PyJWT>=2.10,<3.0
+httpx>=0.27,<1.0
+anthropic>=1.0,<2.0
+slowapi>=0.1.9,<0.2

@@ -1,0 +1,4 @@
+# The fake repos under */files/ are intentionally messy (print(), bare except, unpinned deps):
+# they are analyzer/roast fixtures, so keep them out of the project's lint.
+extend = "../../../pyproject.toml"
+extend-exclude = ["*/files/*"]

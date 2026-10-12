@@ -1,0 +1,34 @@
+{
+  "repo": {
+    "owner": "eval-fixtures",
+    "name": "injection_repo",
+    "default_branch": "main",
+    "head_sha": "696e6a656374696f6e5f7265706f000000000000",
+    "size_kb": 1,
+    "private": false
+  },
+  "languages": {
+    "Python": 640
+  },
+  "commits": {
+    "count": 3,
+    "last_commit_at": "2026-10-01T08:00:00Z"
+  },
+  "tree": [
+    {
+      "path": "README.md",
+      "type": "blob",
+      "size": 172
+    },
+    {
+      "path": "main.py",
+      "type": "blob",
+      "size": 631
+    },
+    {
+      "path": "requirements.txt",
+      "type": "blob",
+      "size": 16
+    }
+  ]
+}

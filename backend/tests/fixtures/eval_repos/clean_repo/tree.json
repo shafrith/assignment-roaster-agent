@@ -1,0 +1,81 @@
+{
+  "repo": {
+    "owner": "eval-fixtures",
+    "name": "clean_repo",
+    "default_branch": "main",
+    "head_sha": "636c65616e5f7265706f00000000000000000000",
+    "size_kb": 4,
+    "private": false
+  },
+  "languages": {
+    "Python": 3120
+  },
+  "commits": {
+    "count": 24,
+    "last_commit_at": "2026-09-28T10:15:00Z"
+  },
+  "tree": [
+    {
+      "path": ".env.example",
+      "type": "blob",
+      "size": 31
+    },
+    {
+      "path": ".gitignore",
+      "type": "blob",
+      "size": 45
+    },
+    {
+      "path": "README.md",
+      "type": "blob",
+      "size": 863
+    },
+    {
+      "path": "app",
+      "type": "tree"
+    },
+    {
+      "path": "app/__init__.py",
+      "type": "blob",
+      "size": 0
+    },
+    {
+      "path": "app/llm.py",
+      "type": "blob",
+      "size": 1472
+    },
+    {
+      "path": "app/main.py",
+      "type": "blob",
+      "size": 969
+    },
+    {
+      "path": "app/prompts",
+      "type": "tree"
+    },
+    {
+      "path": "app/prompts/answer.txt",
+      "type": "blob",
+      "size": 192
+    },
+    {
+      "path": "app/retrieval.py",
+      "type": "blob",
+      "size": 740
+    },
+    {
+      "path": "requirements.txt",
+      "type": "blob",
+      "size": 81
+    },
+    {
+      "path": "tests",
+      "type": "tree"
+    },
+    {
+      "path": "tests/test_retrieval.py",
+      "type": "blob",
+      "size": 353
+    }
+  ]
+}

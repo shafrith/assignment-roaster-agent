@@ -1,0 +1,74 @@
+{
+  "repo": {
+    "owner": "eval-fixtures",
+    "name": "messy_repo",
+    "default_branch": "main",
+    "head_sha": "6d657373795f7265706f00000000000000000000",
+    "size_kb": 12120,
+    "private": false
+  },
+  "languages": {
+    "Jupyter Notebook": 5210
+  },
+  "commits": {
+    "count": 1,
+    "last_commit_at": "2026-09-30T23:58:00Z"
+  },
+  "tree": [
+    {
+      "path": ".env",
+      "type": "blob",
+      "size": 148,
+      "fixture_file": "dot.env"
+    },
+    {
+      "path": ".ipynb_checkpoints",
+      "type": "tree"
+    },
+    {
+      "path": ".ipynb_checkpoints/Untitled1-checkpoint.ipynb",
+      "type": "blob",
+      "size": 5100
+    },
+    {
+      "path": "Untitled1.ipynb",
+      "type": "blob",
+      "size": 2319
+    },
+    {
+      "path": "data.csv",
+      "type": "blob",
+      "size": 12400000
+    },
+    {
+      "path": "venv",
+      "type": "tree"
+    },
+    {
+      "path": "venv/lib",
+      "type": "tree"
+    },
+    {
+      "path": "venv/lib/python3.11",
+      "type": "tree"
+    },
+    {
+      "path": "venv/lib/python3.11/site-packages",
+      "type": "tree"
+    },
+    {
+      "path": "venv/lib/python3.11/site-packages/openai",
+      "type": "tree"
+    },
+    {
+      "path": "venv/lib/python3.11/site-packages/openai/__init__.py",
+      "type": "blob",
+      "size": 4200
+    },
+    {
+      "path": "venv/pyvenv.cfg",
+      "type": "blob",
+      "size": 120
+    }
+  ]
+}
