@@ -22,6 +22,9 @@ Usage in routers::
 The decorated endpoint must accept a ``request: Request`` parameter.
 """
 
+import hashlib
+import hmac
+
 from slowapi import Limiter
 from starlette.requests import Request
 
@@ -43,6 +46,23 @@ def client_ip(request: Request) -> str:
     """
     host = request.client.host if request.client else None
     return f"ip:{host or 'unknown'}"
+
+
+def anonymous_client_key(request: Request) -> str:
+    """Return a stable, non-reversible quota key for an anonymous caller.
+
+    The key is an HMAC-SHA256 (keyed with ``SECRET_KEY``) of :func:`client_ip`, so the daily
+    quota can be enforced per client without storing raw IP addresses.
+
+    Args:
+        request: Incoming request.
+
+    Returns:
+        64-character hex digest.
+    """
+    return hmac.new(
+        settings.SECRET_KEY.encode(), client_ip(request).encode(), hashlib.sha256
+    ).hexdigest()
 
 
 def user_or_ip_key(request: Request) -> str:

@@ -14,7 +14,6 @@ import { createRoot } from 'react-dom/client';
 import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
-import { AuthProvider } from './context/AuthContext';
 import { queryClient } from './lib/queryClient';
 import theme from './theme';
 
@@ -30,9 +29,7 @@ createRoot(rootElement).render(
       <ChakraProvider theme={theme}>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <AuthProvider>
-              <App />
-            </AuthProvider>
+            <App />
           </BrowserRouter>
         </QueryClientProvider>
       </ChakraProvider>

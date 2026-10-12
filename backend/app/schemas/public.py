@@ -2,6 +2,7 @@
 
 from datetime import datetime
 
+from app.models.submission import Submission, SubmissionStatus
 from app.schemas.common import CamelModel
 from app.schemas.roast import RoastResponse
 
@@ -34,7 +35,57 @@ class PublicRoastResponse(CamelModel):
     repo_url: str
     repo_owner: str
     repo_name: str
-    author: PublicAuthor
+    # None for anonymous (no-login) roasts.
+    author: PublicAuthor | None
     roast: RoastResponse
     analysis: PublicAnalysisSummary
     created_at: datetime
+
+
+class RoastStatusResponse(CamelModel):
+    """A roast in any status, served at ``/roasts/{share_slug}`` to the no-login result page.
+
+    Uses the public analysis summary: the link may be shared, so secret counts stay hidden.
+    """
+
+    share_slug: str
+    repo_url: str
+    repo_owner: str
+    repo_name: str
+    status: SubmissionStatus
+    error_message: str | None
+    # Lets the UI hide the retry button for deterministic failures.
+    error_retryable: bool
+    author: PublicAuthor | None
+    analysis: PublicAnalysisSummary | None
+    roast: RoastResponse | None
+    created_at: datetime
+    completed_at: datetime | None
+
+    @classmethod
+    def from_submission(cls, submission: Submission) -> "RoastStatusResponse":
+        """Build the response; analysis and roast are only exposed once the roast completed.
+
+        Args:
+            submission: Submission with ``user``, ``analysis`` and ``roast`` loadable.
+
+        Returns:
+            The response schema.
+        """
+        completed = submission.status == SubmissionStatus.completed
+        return cls.model_validate(
+            {
+                "share_slug": submission.share_slug,
+                "repo_url": submission.repo_url,
+                "repo_owner": submission.repo_owner,
+                "repo_name": submission.repo_name,
+                "status": submission.status,
+                "error_message": submission.error_message,
+                "error_retryable": submission.error_retryable,
+                "author": submission.user,
+                "analysis": submission.analysis if completed else None,
+                "roast": submission.roast if completed else None,
+                "created_at": submission.created_at,
+                "completed_at": submission.completed_at,
+            }
+        )

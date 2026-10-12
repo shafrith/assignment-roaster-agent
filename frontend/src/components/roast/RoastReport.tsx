@@ -11,7 +11,6 @@ import { ScoreGauge } from './ScoreGauge';
 import { ShareBar } from './ShareBar';
 import { StrengthsList } from './StrengthsList';
 import { VerdictBadge } from './VerdictBadge';
-import { VisibilityToggle } from './VisibilityToggle';
 
 export interface RoastRepoInfo {
   owner: string;
@@ -28,19 +27,14 @@ export interface RoastReportProps {
   roast: RoastResponse;
   analysis: AnalysisView | null;
   repo: RoastRepoInfo;
-  /** Read-only (public page): hides owner-only controls such as the visibility toggle. */
-  readOnly?: boolean;
   /** When provided, renders the ShareBar. */
   share?: RoastShareInfo;
-  /** Required (with `share`, `readOnly=false`) to render the VisibilityToggle. */
-  submissionId?: number;
   /** Extra content under the header (e.g. AuthorChip). */
   headerExtra?: ReactNode;
 }
 
-/** Completed roast view, shared by RoastResultPage and PublicRoastPage. */
-export function RoastReport({ roast, analysis, repo, readOnly = false, share, submissionId, headerExtra }: RoastReportProps) {
-  const showToggle = !readOnly && share !== undefined && submissionId !== undefined;
+/** Completed roast view, rendered by RoastPage. */
+export function RoastReport({ roast, analysis, repo, share, headerExtra }: RoastReportProps) {
   return (
     <VStack align="stretch" spacing={6} data-testid="roast-report">
       <GlassCard disableHover>
@@ -57,10 +51,9 @@ export function RoastReport({ roast, analysis, repo, readOnly = false, share, su
             </Link>
             <VerdictBadge verdictTitle={roast.verdictTitle} score={roast.score} />
             {headerExtra}
-            {(share || showToggle) && (
+            {share && (
               <VStack align={{ base: 'center', md: 'start' }} spacing={3} pt={2}>
-                {showToggle && share && <VisibilityToggle submissionId={submissionId} isPublic={share.isPublic} />}
-                {share && <ShareBar shareSlug={share.shareSlug} score={roast.score} isPublic={share.isPublic} />}
+                <ShareBar shareSlug={share.shareSlug} score={roast.score} isPublic={share.isPublic} />
               </VStack>
             )}
           </VStack>

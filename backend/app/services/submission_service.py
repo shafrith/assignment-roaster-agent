@@ -1,10 +1,14 @@
-"""Submission business logic: create, list, fetch, retry, visibility, delete, public share."""
+"""Submission business logic: create, list, fetch, retry, visibility, delete, public share.
+
+Anonymous (no-login) roasts use the ``*_anonymous`` functions: they have no user, are reached
+only through their unguessable ``share_slug``, and are charged to a per-client quota key.
+"""
 
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -165,6 +169,36 @@ def get_owned_submission(db: Session, user: User, submission_id: int) -> Submiss
     return submission
 
 
+def _check_retryable(db: Session, submission: Submission) -> None:
+    """Raise unless the (row-locked) submission may be retried.
+
+    Raises:
+        ConflictError: Not ``failed``, not retryable, or the retry cap is reached.
+    """
+    if submission.status != SubmissionStatus.failed:
+        raise ConflictError(RETRY_CONFLICT_MESSAGE)
+    if not submission.error_retryable:
+        raise ConflictError(RETRY_NOT_RETRYABLE_MESSAGE)
+    attempts = db.scalar(
+        select(func.count(RoastAttempt.id)).where(RoastAttempt.submission_id == submission.id)
+    )
+    if int(attempts or 0) > settings.ROAST_MAX_RETRIES:
+        raise ConflictError(RETRY_LIMIT_MESSAGE)
+
+
+def _reset_for_retry(db: Session, submission: Submission) -> None:
+    """Delete stale partial results and put the submission back to ``pending`` (no commit)."""
+    if submission.analysis is not None:
+        db.delete(submission.analysis)
+    if submission.roast is not None:
+        db.delete(submission.roast)
+    submission.status = SubmissionStatus.pending
+    submission.error_message = None
+    submission.error_retryable = True
+    submission.completed_at = None
+    submission.deduped_from_submission_id = None
+
+
 def retry_submission(db: Session, user: User, submission_id: int) -> Submission:
     """Reset a ``failed`` submission to ``pending`` so the pipeline can run again.
 
@@ -189,29 +223,13 @@ def retry_submission(db: Session, user: User, submission_id: int) -> Submission:
         )
         if submission is None:
             raise NotFoundError(NOT_FOUND_MESSAGE)
-        if submission.status != SubmissionStatus.failed:
-            raise ConflictError(RETRY_CONFLICT_MESSAGE)
-        if not submission.error_retryable:
-            raise ConflictError(RETRY_NOT_RETRYABLE_MESSAGE)
-        attempts = db.scalar(
-            select(func.count(RoastAttempt.id)).where(RoastAttempt.submission_id == submission.id)
-        )
-        if int(attempts or 0) > settings.ROAST_MAX_RETRIES:
-            raise ConflictError(RETRY_LIMIT_MESSAGE)
+        _check_retryable(db, submission)
         _enforce_daily_limit(db, user)
     except (NotFoundError, ConflictError, RateLimitedError):
         db.rollback()
         raise
 
-    if submission.analysis is not None:
-        db.delete(submission.analysis)
-    if submission.roast is not None:
-        db.delete(submission.roast)
-    submission.status = SubmissionStatus.pending
-    submission.error_message = None
-    submission.error_retryable = True
-    submission.completed_at = None
-    submission.deduped_from_submission_id = None
+    _reset_for_retry(db, submission)
     db.add(RoastAttempt(user_id=user.id, submission_id=submission.id))
     db.commit()
     db.refresh(submission)
@@ -257,4 +275,161 @@ def get_public_roast(db: Session, share_slug: str) -> Submission:
     )
     if submission is None or submission.roast is None or submission.analysis is None:
         raise NotFoundError(NOT_FOUND_MESSAGE)
+    return submission
+
+
+# ------------------------------------------------------------------------------- anonymous
+
+
+def _lock_client(db: Session, client_key: str) -> None:
+    """Take a transaction-scoped advisory lock on an anonymous client's quota key.
+
+    Plays the role of :func:`_lock_user` for callers without a user row to lock.
+    """
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": client_key})
+
+
+def attempts_used_today_by_client(db: Session, client_key: str) -> int:
+    """Return an anonymous client's pipeline attempts (creates + retries) in the last 24 hours.
+
+    Args:
+        db: Database session.
+        client_key: Hashed client identifier from :func:`app.rate_limit.anonymous_client_key`.
+
+    Returns:
+        Attempts charged against the client's daily quota.
+    """
+    since = datetime.now(UTC) - QUOTA_WINDOW
+    count = db.scalar(
+        select(func.count(RoastAttempt.id)).where(
+            RoastAttempt.client_key == client_key, RoastAttempt.created_at >= since
+        )
+    )
+    return int(count or 0)
+
+
+def _enforce_client_daily_limit(db: Session, client_key: str) -> None:
+    """Raise when the client already used ``ROAST_DAILY_LIMIT`` attempts in the last 24h.
+
+    Must be called after :func:`_lock_client` in the same transaction.
+
+    Raises:
+        RateLimitedError: Quota exhausted.
+    """
+    if attempts_used_today_by_client(db, client_key) >= settings.ROAST_DAILY_LIMIT:
+        raise RateLimitedError(DAILY_LIMIT_MESSAGE)
+
+
+def create_anonymous_submission(db: Session, client_key: str, repo_url: str) -> Submission:
+    """Validate the repo URL, enforce the client's daily quota, and insert a pending submission.
+
+    Anonymous roasts are always public: whoever holds the share link can view them.
+
+    Args:
+        db: Request DB session.
+        client_key: Hashed client identifier charged for the attempt.
+        repo_url: Raw GitHub repo URL from the client.
+
+    Returns:
+        The persisted ``pending`` submission.
+
+    Raises:
+        BadRequestError: URL is not a GitHub repo URL.
+        RateLimitedError: Daily quota exhausted.
+    """
+    owner, repo = parse_github_url(repo_url)
+    normalized_url = normalize_github_url(owner, repo)
+
+    for attempt in range(1, SLUG_MAX_ATTEMPTS + 1):
+        _lock_client(db, client_key)
+        try:
+            _enforce_client_daily_limit(db, client_key)
+        except RateLimitedError:
+            db.rollback()
+            raise
+        submission = Submission(
+            user_id=None,
+            repo_url=normalized_url,
+            repo_owner=owner,
+            repo_name=repo,
+            status=SubmissionStatus.pending,
+            is_public=True,
+            share_slug=_generate_share_slug(),
+        )
+        db.add(submission)
+        try:
+            db.flush()
+            db.add(RoastAttempt(client_key=client_key, submission_id=submission.id))
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            if attempt == SLUG_MAX_ATTEMPTS:
+                raise
+            logger.warning("Share slug collision on attempt %d; retrying", attempt)
+            continue
+        db.refresh(submission)
+        logger.info("Anonymous submission %d created", submission.id)
+        return submission
+    raise RuntimeError("unreachable")  # pragma: no cover
+
+
+def get_roast_by_slug(db: Session, share_slug: str) -> Submission:
+    """Fetch a roast in any status by share slug, for the no-login result page.
+
+    Anonymous submissions are always reachable by slug; a logged-in user's submission only
+    when it is public.
+
+    Raises:
+        NotFoundError: Unknown slug, or a private user-owned submission (existence not leaked).
+    """
+    submission = db.scalar(
+        select(Submission)
+        .where(
+            Submission.share_slug == share_slug,
+            or_(Submission.user_id.is_(None), Submission.is_public.is_(True)),
+        )
+        .options(
+            joinedload(Submission.user),
+            selectinload(Submission.analysis),
+            selectinload(Submission.roast),
+        )
+    )
+    if submission is None:
+        raise NotFoundError(NOT_FOUND_MESSAGE)
+    return submission
+
+
+def retry_anonymous_submission(db: Session, client_key: str, share_slug: str) -> Submission:
+    """Reset a failed anonymous submission to ``pending``, charging the caller's quota.
+
+    Same rules as :func:`retry_submission` (failed only, retryable only, ``ROAST_MAX_RETRIES``
+    cap), under the client's advisory lock and the submission row lock.
+
+    Raises:
+        NotFoundError: Unknown slug or not an anonymous submission.
+        ConflictError: Not ``failed``, not retryable, or the retry cap is reached.
+        RateLimitedError: Daily quota exhausted.
+    """
+    _lock_client(db, client_key)
+    try:
+        submission = db.scalar(
+            select(Submission)
+            .where(Submission.share_slug == share_slug, Submission.user_id.is_(None))
+            .with_for_update()
+            # The locked row may be newer than an identity-map copy loaded earlier.
+            .execution_options(populate_existing=True)
+        )
+        if submission is None:
+            raise NotFoundError(NOT_FOUND_MESSAGE)
+        _check_retryable(db, submission)
+        _enforce_client_daily_limit(db, client_key)
+    except (NotFoundError, ConflictError, RateLimitedError):
+        db.rollback()
+        raise
+
+    _reset_for_retry(db, submission)
+    db.add(RoastAttempt(client_key=client_key, submission_id=submission.id))
+    db.commit()
+    db.refresh(submission)
+    logger.info("Anonymous submission %d reset for retry", submission.id)
     return submission

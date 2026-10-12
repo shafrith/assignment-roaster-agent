@@ -46,7 +46,7 @@ export function ExampleRoastCard() {
           <Badge colorScheme="red" variant="subtle" borderRadius="full" px={3} py={1}>
             Sample roast
           </Badge>
-          <Heading size="md" textStyle="fireGradient">
+          <Heading size="md" textStyle="accent">
             README Illaadha Rajini 🕶️
           </Heading>
         </VStack>

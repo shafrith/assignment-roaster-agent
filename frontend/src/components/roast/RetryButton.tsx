@@ -1,25 +1,25 @@
 import { Alert, AlertDescription, AlertIcon, VStack } from '@chakra-ui/react';
 import { FiRefreshCw } from 'react-icons/fi';
-import { useRetry } from '../../hooks/useSubmissions';
+import { useRetryRoast } from '../../hooks/useRoast';
 import { getErrorMessage } from '../../services/api';
-import { GradientButton } from '../ui/GradientButton';
+import { PrimaryButton } from '../ui/PrimaryButton';
 
 export interface RetryButtonProps {
-  submissionId: number;
+  shareSlug: string;
 }
 
-export function RetryButton({ submissionId }: RetryButtonProps) {
-  const mutation = useRetry();
+export function RetryButton({ shareSlug }: RetryButtonProps) {
+  const mutation = useRetryRoast();
   return (
     <VStack spacing={3} w="full">
-      <GradientButton
+      <PrimaryButton
         leftIcon={<FiRefreshCw aria-hidden="true" />}
-        onClick={() => mutation.mutate(submissionId)}
+        onClick={() => mutation.mutate(shareSlug)}
         isLoading={mutation.isPending}
         loadingText="Retrying..."
       >
         Retry pannu 🔁
-      </GradientButton>
+      </PrimaryButton>
       {mutation.isError && (
         <Alert status="error" borderRadius="md">
           <AlertIcon />

@@ -19,7 +19,7 @@ export default function NotFoundPage() {
             >
               🔍
             </MotionBox>
-            <Heading size="2xl" textStyle="fireGradient">
+            <Heading size="2xl" textStyle="accent">
               404
             </Heading>
             <Heading size="md">Indha page-a kaanom da! 🔍</Heading>

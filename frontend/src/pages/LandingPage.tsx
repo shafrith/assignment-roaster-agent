@@ -1,13 +1,10 @@
-import { Badge, Box, Flex, Heading, HStack, Icon, SimpleGrid, Stack, Text, VStack } from '@chakra-ui/react';
+import { Badge, Box, Flex, Heading, HStack, Icon, SimpleGrid, Text, VStack } from '@chakra-ui/react';
 import type { Variants } from 'framer-motion';
 import type { IconType } from 'react-icons';
-import { FiArrowRight, FiCpu, FiLink, FiZap } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
-import { GitHubLoginButton } from '../components/auth/GitHubLoginButton';
+import { FiCpu, FiLink, FiZap } from 'react-icons/fi';
 import { ExampleRoastCard } from '../components/landing/ExampleRoastCard';
+import { RoastForm } from '../components/roast/RoastForm';
 import { GlassCard } from '../components/ui/GlassCard';
-import { GradientButton } from '../components/ui/GradientButton';
-import { useAuth } from '../hooks/useAuth';
 import { MotionBox } from '../lib/motion';
 
 const container: Variants = {
@@ -32,7 +29,7 @@ const STEPS: Step[] = [
     icon: FiLink,
     title: 'Paste repo',
     tamil: 'Link-a podu',
-    body: 'Drop the public GitHub URL of your GenAI community assignment. No repo permissions needed.',
+    body: 'Drop the public GitHub URL of your GenAI community assignment. No login, no repo permissions.',
   },
   {
     icon: FiCpu,
@@ -48,39 +45,9 @@ const STEPS: Step[] = [
   },
 ];
 
-function HeroCta() {
-  const { isAuthenticated, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  if (isAuthenticated) {
-    return (
-      <GradientButton rightIcon={<FiArrowRight />} onClick={() => navigate('/dashboard')}>
-        Go to dashboard
-      </GradientButton>
-    );
-  }
-  return <GitHubLoginButton isLoading={isLoading} />;
-}
-
 export default function LandingPage() {
   return (
     <Box position="relative">
-      {/* Decorative glow */}
-      <Box
-        position="absolute"
-        top={{ base: '-10', md: '-20' }}
-        left="50%"
-        transform="translateX(-50%)"
-        w={{ base: '320px', md: '640px' }}
-        h={{ base: '320px', md: '480px' }}
-        bgGradient="radial(fire.500, transparent 70%)"
-        opacity={0.18}
-        filter="blur(60px)"
-        pointerEvents="none"
-        zIndex={0}
-        aria-hidden
-      />
-
       <MotionBox position="relative" zIndex={1} initial="hidden" animate="visible" variants={container}>
         {/* Hero */}
         <Flex
@@ -103,7 +70,7 @@ export default function LandingPage() {
                 lineHeight={1.1}
                 letterSpacing="tight"
               >
-                <Text as="span" textStyle="fireGradient">
+                <Text as="span" textStyle="accent">
                   Un assignment-a roast panna ready-a?
                 </Text>{' '}
                 🔥
@@ -116,13 +83,8 @@ export default function LandingPage() {
                 structure and prompt hygiene.
               </Text>
             </MotionBox>
-            <MotionBox variants={rise}>
-              <Stack direction={{ base: 'column', sm: 'row' }} spacing={4} align="center">
-                <HeroCta />
-                <Text fontSize="sm" color="text.muted">
-                  Free · Public repos only · No repo access
-                </Text>
-              </Stack>
+            <MotionBox variants={rise} w="full" maxW="xl" textAlign="left">
+              <RoastForm />
             </MotionBox>
           </VStack>
 
@@ -153,7 +115,7 @@ export default function LandingPage() {
                       align="center"
                       justify="center"
                       borderRadius="xl"
-                      bgGradient="linear(to-br, fire.400, red.600)"
+                      bg="fire.500"
                       color="white"
                     >
                       <Icon as={step.icon} boxSize={5} />

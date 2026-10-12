@@ -8,14 +8,6 @@ export type Severity = "low" | "medium" | "high" | "critical";
 export type IssueCategory = "structure" | "documentation" | "dependencies" | "testing"
   | "security" | "code_quality" | "git_hygiene" | "genai_practices";
 
-export interface UserResponse {
-  id: number; githubUsername: string; displayName: string | null;
-  avatarUrl: string | null; defaultRoastPublic: boolean; createdAt: string;
-  /** COR-8: optional until the backend exposes ROAST_DAILY_LIMIT / today's usage on /auth/me. */
-  dailyLimit?: number | null; roastsUsedToday?: number | null;
-}
-export interface TokenResponse { accessToken: string; refreshToken: string; tokenType: "bearer"; }
-
 export interface RoastIssue { category: IssueCategory; severity: Severity; file: string | null; message: string; }
 
 export interface RoastResponse {
@@ -35,23 +27,16 @@ export type PublicAnalysisSummary = Omit<AnalysisSummary, 'hasEnvFileCommitted' 
 /** Analysis shape accepted by shared result components: owner view has the secret fields, public view doesn't. */
 export type AnalysisView = PublicAnalysisSummary & Partial<Pick<AnalysisSummary, 'hasEnvFileCommitted' | 'secretsFoundCount'>>;
 
-export interface SubmissionResponse {
-  id: number; repoUrl: string; repoOwner: string; repoName: string;
-  status: SubmissionStatus; errorMessage: string | null; isPublic: boolean;
-  shareSlug: string; createdAt: string; completedAt: string | null;
-  analysis: AnalysisSummary | null; roast: RoastResponse | null;
-}
+export interface PublicAuthor { githubUsername: string; avatarUrl: string | null; }
 
-export interface SubmissionListItem {
-  id: number; repoOwner: string; repoName: string; status: SubmissionStatus;
-  score: number | null; verdictTitle: string | null; isPublic: boolean; createdAt: string;
-}
-export interface Paginated<T> { items: T[]; total: number; page: number; pageSize: number; }
-
-export interface PublicRoastResponse {
-  repoUrl: string; repoOwner: string; repoName: string;
-  author: { githubUsername: string; avatarUrl: string | null };
-  roast: RoastResponse; analysis: PublicAnalysisSummary; createdAt: string;
+/** GET /roasts/{shareSlug}: a roast in any status. `analysis`/`roast` are set only once completed. */
+export interface RoastStatusResponse {
+  shareSlug: string; repoUrl: string; repoOwner: string; repoName: string;
+  status: SubmissionStatus; errorMessage: string | null; errorRetryable: boolean;
+  /** Null for anonymous (no-login) roasts. */
+  author: PublicAuthor | null;
+  analysis: PublicAnalysisSummary | null; roast: RoastResponse | null;
+  createdAt: string; completedAt: string | null;
 }
 
 export interface ErrorResponse { detail: string; }  // detail may be a Tanglish user-facing message

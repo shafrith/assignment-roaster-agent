@@ -12,7 +12,7 @@
 - Backend: FastAPI + Python 3.11+
 - Frontend: React + Vite + TypeScript
 - Database: PostgreSQL + SQLAlchemy + Alembic
-- Auth: GitHub OAuth only (backend-issued JWT)
+- Auth: none for users — anyone can paste a repo URL and get roasted (legacy GitHub OAuth + JWT endpoints remain in the backend but the UI does not use them)
 - UI: Chakra UI + Framer Motion
 - LLM: Claude via Anthropic Python SDK
 - External: GitHub REST API
@@ -144,17 +144,18 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 - ❌ Never skip error handling in async operations
 - ❌ Never use inline styles - use Chakra UI style props / theme
 - ❌ Never render roast markdown as raw HTML (sanitize)
+- ❌ Never use gradient colors (`bgGradient`, `linear-gradient`, gradient text) - use solid theme colors
 
 ---
 
 ## Module-Specific Rules
 
 ### Submissions Module
-- All submissions belong to a user (`user_id` foreign key)
+- No login: the UI uses the anonymous `/roasts` endpoints; anonymous submissions have `user_id = NULL` and are reached only by `share_slug`
 - `status` must be one of: `pending`, `analyzing`, `roasting`, `completed`, `failed`
 - Only accept `https://github.com/{owner}/{repo}` (normalize `.git`, trailing slash, `/tree/...`)
 - Public repos only; private/missing repos → 400 with friendly Tanglish message
-- Enforce `ROAST_DAILY_LIMIT` per user per day (429 when exceeded)
+- Enforce `ROAST_DAILY_LIMIT` per client per day (429 when exceeded); anonymous clients are keyed by an HMAC of the IP — never store raw IPs
 - Same repo + same commit SHA → reuse the existing roast (no new Claude call)
 - `share_slug` is random and unguessable (e.g. `secrets.token_urlsafe(8)`), never the numeric id
 - Processing runs in the background (FastAPI `BackgroundTasks` for MVP); the POST returns 202

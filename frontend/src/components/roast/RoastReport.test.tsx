@@ -1,8 +1,7 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { submissionService } from '../../services/submissionService';
-import { analysisFixture, makeSubmission, roastFixture } from '../../test/fixtures';
+import { analysisFixture, roastFixture } from '../../test/fixtures';
 import { renderWithProviders } from '../../test/utils';
 import type { RoastResponse } from '../../types/api';
 import { RoastMarkdown } from './RoastMarkdown';
@@ -66,26 +65,13 @@ describe('RoastReport', () => {
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   });
 
-  it('owner view: shows the visibility toggle, which calls updateVisibility', async () => {
-    const update = vi
-      .spyOn(submissionService, 'updateVisibility')
-      .mockResolvedValue(makeSubmission({ id: 7, isPublic: true }));
-    renderReport({ share: { shareSlug: 'abc123', isPublic: false }, submissionId: 7 });
-
-    const toggle = screen.getByRole('checkbox', { name: '🔒 Private' });
-    expect(toggle).not.toBeChecked();
-    await userEvent.click(toggle);
-    await waitFor(() => expect(update).toHaveBeenCalledWith(7, { isPublic: true }));
-  });
-
-  it('readOnly hides the visibility toggle but keeps the share bar', () => {
-    renderReport({ readOnly: true, share: { shareSlug: 'abc123', isPublic: true }, submissionId: 7 });
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  it('renders the share bar when share info is given', () => {
+    renderReport({ share: { shareSlug: 'abc123', isPublic: true } });
     expect(screen.getByTestId('share-bar')).toBeInTheDocument();
   });
 
   it('private roast: share buttons disabled with a lock hint', () => {
-    renderReport({ share: { shareSlug: 'abc123', isPublic: false }, submissionId: 7 });
+    renderReport({ share: { shareSlug: 'abc123', isPublic: false } });
     expect(screen.getByRole('button', { name: 'Copy public roast link' })).toBeDisabled();
     const wa = screen.getByLabelText('Share on WhatsApp');
     const x = screen.getByLabelText('Share on X');
@@ -99,7 +85,7 @@ describe('RoastReport', () => {
   it('public roast: share links point at the public URL', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-    renderReport({ readOnly: true, share: { shareSlug: 'abc123', isPublic: true } });
+    renderReport({ share: { shareSlug: 'abc123', isPublic: true } });
 
     const publicUrl = `${window.location.origin}/r/abc123`;
     const wa = screen.getByLabelText('Share on WhatsApp');

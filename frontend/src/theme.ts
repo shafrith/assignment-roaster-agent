@@ -79,9 +79,9 @@ export const theme = extendTheme({
     },
   },
   textStyles: {
-    fireGradient: {
-      bgGradient: 'linear(to-r, fire.300, fire.500, red.500)',
-      bgClip: 'text',
+    /** Solid accent for headings and the logo (the app uses no gradients). */
+    accent: {
+      color: 'accent',
     },
   },
 });

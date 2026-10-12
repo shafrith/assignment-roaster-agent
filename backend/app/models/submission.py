@@ -45,7 +45,10 @@ class Submission(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # NULL for anonymous (no-login) roasts, which are reached only through ``share_slug``.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
     # Normalized https://github.com/{owner}/{repo}
     repo_url: Mapped[str] = mapped_column(String(300), nullable=False)
     repo_owner: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -79,7 +82,7 @@ class Submission(TimestampMixin, Base):
     share_slug: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User"] = relationship(back_populates="submissions")
+    user: Mapped["User | None"] = relationship(back_populates="submissions")
     analysis: Mapped["RepoAnalysis | None"] = relationship(
         back_populates="submission",
         uselist=False,
