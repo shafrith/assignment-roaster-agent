@@ -40,20 +40,6 @@ class BadRequestError(AppError):
     default_detail = "Bad request."
 
 
-class UnauthorizedError(AppError):
-    """Authentication is missing or invalid (401)."""
-
-    status_code = status.HTTP_401_UNAUTHORIZED
-    default_detail = "Not authenticated."
-
-
-class ForbiddenError(AppError):
-    """The caller is authenticated but not allowed to perform the action (403)."""
-
-    status_code = status.HTTP_403_FORBIDDEN
-    default_detail = "Forbidden."
-
-
 class NotFoundError(AppError):
     """The requested resource does not exist or is not visible to the caller (404)."""
 
@@ -90,10 +76,7 @@ async def app_error_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.error(
             "%s on %s %s: %s", type(exc).__name__, request.method, request.url.path, exc.detail
         )
-    headers = {"WWW-Authenticate": "Bearer"} if isinstance(exc, UnauthorizedError) else None
-    return JSONResponse(
-        status_code=exc.status_code, content={"detail": exc.detail}, headers=headers
-    )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:

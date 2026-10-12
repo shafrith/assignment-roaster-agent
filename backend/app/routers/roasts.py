@@ -1,12 +1,11 @@
-"""No-login roast endpoints: paste a GitHub URL, poll the roast by its share slug, retry."""
+"""Roast endpoints (no login): paste a GitHub URL, poll the roast by its share slug, retry."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db
-from app.rate_limit import anonymous_client_key, limiter
-from app.schemas.public import RoastStatusResponse
-from app.schemas.submission import SubmissionCreate
+from app.rate_limit import client_quota_key, limiter
+from app.schemas.public import RoastCreate, RoastStatusResponse
 from app.services import submission_service
 from app.services.pipeline import run_pipeline
 
@@ -17,14 +16,12 @@ router = APIRouter(prefix="/roasts", tags=["roasts"])
 @limiter.limit("10/minute")
 async def create_roast(
     request: Request,
-    body: SubmissionCreate,
+    body: RoastCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> RoastStatusResponse:
     """Queue a roast of a public GitHub repo without login (quota is per client)."""
-    submission = submission_service.create_anonymous_submission(
-        db, anonymous_client_key(request), body.repo_url
-    )
+    submission = submission_service.create_submission(db, client_quota_key(request), body.repo_url)
     background_tasks.add_task(run_pipeline, submission.id)
     return RoastStatusResponse.from_submission(submission)
 
@@ -51,9 +48,7 @@ async def retry_roast(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> RoastStatusResponse:
-    """Re-run the pipeline for a failed anonymous roast (409 unless ``failed``)."""
-    submission = submission_service.retry_anonymous_submission(
-        db, anonymous_client_key(request), share_slug
-    )
+    """Re-run the pipeline for a failed roast (409 unless ``failed``)."""
+    submission = submission_service.retry_submission(db, client_quota_key(request), share_slug)
     background_tasks.add_task(run_pipeline, submission.id)
     return RoastStatusResponse.from_submission(submission)

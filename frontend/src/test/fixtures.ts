@@ -45,7 +45,6 @@ export function makeRoastStatus(overrides: Partial<RoastStatusResponse> = {}): R
     status: 'completed',
     errorMessage: null,
     errorRetryable: true,
-    author: null,
     analysis: publicAnalysisFixture,
     roast: roastFixture,
     createdAt: '2026-10-01T09:59:00Z',

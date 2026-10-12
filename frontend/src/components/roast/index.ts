@@ -1,5 +1,4 @@
 export { AnalysisChips } from './AnalysisChips';
-export { AuthorChip } from './AuthorChip';
 export { FixTipsList } from './FixTipsList';
 export { IssuesList } from './IssuesList';
 export { RetryButton } from './RetryButton';

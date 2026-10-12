@@ -2,7 +2,6 @@ import { Button, HStack, Heading, Link, Text, VStack } from '@chakra-ui/react';
 import { Helmet } from 'react-helmet-async';
 import { FiArrowLeft, FiGithub, FiRefreshCw } from 'react-icons/fi';
 import { Link as RouterLink, useParams } from 'react-router-dom';
-import { AuthorChip } from '../components/roast/AuthorChip';
 import { RetryButton } from '../components/roast/RetryButton';
 import { RoastReport } from '../components/roast/RoastReport';
 import { RoastReportSkeleton } from '../components/roast/RoastReportSkeleton';
@@ -83,9 +82,6 @@ function RoastBody({ data, isPollingTimedOut, onResumePolling }: RoastBodyProps)
           analysis={data.analysis}
           repo={{ owner: data.repoOwner, name: data.repoName, url: data.repoUrl }}
           share={{ shareSlug: data.shareSlug, isPublic: true }}
-          headerExtra={
-            data.author ? <AuthorChip githubUsername={data.author.githubUsername} avatarUrl={data.author.avatarUrl} /> : undefined
-          }
         />
         <RoastYourOwnCta />
       </VStack>

@@ -45,26 +45,17 @@ describe('RoastPage', () => {
     expect(get).toHaveBeenCalledTimes(callsAtCompletion);
   }, 15000);
 
-  it('completed → full report with share bar and GitHub link, no author for anonymous roasts', async () => {
+  it('completed → full report with share bar and GitHub link', async () => {
     vi.spyOn(roastService, 'get').mockResolvedValue(makeRoastStatus({ status: 'completed' }));
     renderAt('/r/abc123');
     expect(await screen.findByTestId('roast-report')).toBeInTheDocument();
     expect(screen.getByLabelText('Score 3.5 out of 10')).toBeInTheDocument();
     expect(screen.getByTestId('share-bar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy public roast link' })).toBeEnabled();
-    expect(screen.queryByText(/Roasted repo by/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open machan/genai-hw on GitHub' })).toHaveAttribute(
       'href',
       'https://github.com/machan/genai-hw',
     );
-  });
-
-  it('completed roast of a logged-in era user shows the author chip', async () => {
-    vi.spyOn(roastService, 'get').mockResolvedValue(
-      makeRoastStatus({ author: { githubUsername: 'roastee', avatarUrl: null } }),
-    );
-    renderAt('/r/abc123');
-    expect(await screen.findByText('@roastee')).toBeInTheDocument();
   });
 
   it('failed → error message + Retry button that calls retry', async () => {

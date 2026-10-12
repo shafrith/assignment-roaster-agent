@@ -1,4 +1,4 @@
-"""Unauthenticated public endpoints (shared roasts)."""
+"""Public share endpoint: a completed roast by its share slug."""
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
@@ -16,14 +16,13 @@ router = APIRouter(prefix="/public", tags=["public"])
 async def get_public_roast(
     request: Request, share_slug: str, db: Session = Depends(get_db)
 ) -> PublicRoastResponse:
-    """Return a public, completed roast by its share slug (404 otherwise). No auth."""
+    """Return a public, completed roast by its share slug (404 otherwise)."""
     submission = submission_service.get_public_roast(db, share_slug)
     return PublicRoastResponse.model_validate(
         {
             "repo_url": submission.repo_url,
             "repo_owner": submission.repo_owner,
             "repo_name": submission.repo_name,
-            "author": submission.user,
             "roast": submission.roast,
             "analysis": submission.analysis,
             "created_at": submission.created_at,

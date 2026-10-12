@@ -48,16 +48,8 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
 
-    # Auth
-    # The JWT algorithm is NOT configurable: it is pinned to HS256 in ``app.auth.jwt``.
+    # Keys the HMAC that turns client IPs into daily-quota keys (raw IPs are never stored).
     SECRET_KEY: str = Field(min_length=1)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, gt=0)
-    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(default=7, gt=0)
-
-    # GitHub OAuth
-    GITHUB_CLIENT_ID: str = ""
-    GITHUB_CLIENT_SECRET: str = ""
-    GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/v1/auth/github/callback"
 
     # GitHub API (server token, read-only public access)
     GITHUB_API_TOKEN: str = ""
@@ -113,7 +105,7 @@ class Settings(BaseSettings):
         """Refuse to start in production with a weak ``SECRET_KEY`` or a non-HTTPS frontend.
 
         A placeholder key (for example the one in ``.env.example``) is public, so anyone could
-        forge access tokens for any user.
+        recompute the quota keys from IP addresses.
 
         Returns:
             The validated settings.
@@ -153,8 +145,6 @@ class Settings(BaseSettings):
     def warn_missing_secrets(self) -> None:
         """Log a warning for each optional third-party secret that is not configured."""
         optional_secrets = {
-            "GITHUB_CLIENT_ID": self.GITHUB_CLIENT_ID,
-            "GITHUB_CLIENT_SECRET": self.GITHUB_CLIENT_SECRET,
             "GITHUB_API_TOKEN": self.GITHUB_API_TOKEN,
             "ANTHROPIC_API_KEY": self.ANTHROPIC_API_KEY,
         }

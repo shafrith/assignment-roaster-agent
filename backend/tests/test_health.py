@@ -20,18 +20,13 @@ def test_health(client: TestClient) -> None:
 def test_openapi_documents_every_endpoint(client: TestClient) -> None:
     paths = client.get("/openapi.json").json()["paths"]
     for path in (
-        "/api/v1/auth/github/login",
-        "/api/v1/auth/github/callback",
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/logout",
-        "/api/v1/auth/me",
-        "/api/v1/submissions",
-        "/api/v1/submissions/{submission_id}",
-        "/api/v1/submissions/{submission_id}/retry",
-        "/api/v1/submissions/{submission_id}/visibility",
+        "/api/v1/roasts",
+        "/api/v1/roasts/{share_slug}",
+        "/api/v1/roasts/{share_slug}/retry",
         "/api/v1/public/roasts/{share_slug}",
     ):
         assert path in paths
+    assert not any(path.startswith(("/api/v1/auth", "/api/v1/submissions")) for path in paths)
 
 
 def test_cors_allows_frontend_origin(client: TestClient) -> None:
@@ -42,15 +37,13 @@ def test_cors_allows_frontend_origin(client: TestClient) -> None:
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
-def test_unhandled_errors_return_generic_500(
-    db: object, auth_headers: dict[str, str], monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unhandled_errors_return_generic_500(db: object, monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(*_args: object) -> None:
         raise RuntimeError("database password is hunter2")
 
-    monkeypatch.setattr(submission_service, "list_submissions", boom)
+    monkeypatch.setattr(submission_service, "get_roast_by_slug", boom)
     with TestClient(app, raise_server_exceptions=False) as client:
-        response = client.get("/api/v1/submissions", headers=auth_headers)
+        response = client.get("/api/v1/roasts/some-slug")
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error."}
     assert "hunter2" not in response.text
@@ -80,7 +73,7 @@ def test_settings_normalization() -> None:
     assert settings.FRONTEND_URL == "https://example.com"
     assert settings.is_production
     assert settings.max_repo_size_kb == settings.MAX_REPO_SIZE_MB * 1024
-    assert not hasattr(settings, "ALGORITHM")  # pinned in app.auth.jwt, not configurable
+    assert not hasattr(settings, "GITHUB_CLIENT_ID")  # no login, so no OAuth settings
     settings.warn_missing_secrets()
     assert Settings(DATABASE_URL="postgresql://x", SECRET_KEY="k").DATABASE_URL == (
         "postgresql+psycopg://x"

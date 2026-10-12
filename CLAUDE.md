@@ -12,7 +12,7 @@
 - Backend: FastAPI + Python 3.11+
 - Frontend: React + Vite + TypeScript
 - Database: PostgreSQL + SQLAlchemy + Alembic
-- Auth: none for users — anyone can paste a repo URL and get roasted (legacy GitHub OAuth + JWT endpoints remain in the backend but the UI does not use them)
+- Auth: none — anyone can paste a repo URL and get roasted (no accounts, no OAuth, no JWT)
 - UI: Chakra UI + Framer Motion
 - LLM: Claude via Anthropic Python SDK
 - External: GitHub REST API
@@ -29,15 +29,13 @@ assignment-roaster/
 │   │   ├── config.py
 │   │   ├── database.py
 │   │   ├── models/
-│   │   │   ├── user.py
-│   │   │   ├── refresh_token.py
 │   │   │   ├── submission.py
+│   │   │   ├── roast_attempt.py  # daily quota, keyed by client HMAC
 │   │   │   ├── repo_analysis.py
 │   │   │   └── roast.py
 │   │   ├── schemas/
 │   │   ├── routers/
-│   │   │   ├── auth.py
-│   │   │   ├── submissions.py
+│   │   │   ├── roasts.py         # POST /roasts, GET + retry by share slug
 │   │   │   └── public.py
 │   │   ├── services/
 │   │   │   ├── github_client.py
@@ -46,7 +44,6 @@ assignment-roaster/
 │   │   │   ├── roast_engine.py
 │   │   │   ├── prompts/          # system prompt + roast templates
 │   │   │   └── pipeline.py       # pending → analyzing → roasting → completed
-│   │   └── auth/
 │   ├── alembic/
 │   ├── tests/
 │   │   └── fixtures/             # fake repo trees, canned Claude responses
@@ -136,7 +133,7 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 - ❌ Never `git clone` arbitrary URLs or fetch user-supplied URLs directly — only call `api.github.com` with a parsed owner/repo (SSRF prevention)
 - ❌ Never send unredacted secrets to Claude, the DB, or logs
 - ❌ Never call the real GitHub or Anthropic APIs in tests - mock them
-- ❌ Never request the GitHub `repo` OAuth scope
+- ❌ Never add login, accounts or per-user data - roasts are reached only by `share_slug`
 
 ### Frontend
 - ❌ Never use `any` type
@@ -151,11 +148,11 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 ## Module-Specific Rules
 
 ### Submissions Module
-- No login: the UI uses the anonymous `/roasts` endpoints; anonymous submissions have `user_id = NULL` and are reached only by `share_slug`
+- No login: submissions belong to no user; they are created via `POST /roasts` and reached only by `share_slug`
 - `status` must be one of: `pending`, `analyzing`, `roasting`, `completed`, `failed`
 - Only accept `https://github.com/{owner}/{repo}` (normalize `.git`, trailing slash, `/tree/...`)
 - Public repos only; private/missing repos → 400 with friendly Tanglish message
-- Enforce `ROAST_DAILY_LIMIT` per client per day (429 when exceeded); anonymous clients are keyed by an HMAC of the IP — never store raw IPs
+- Enforce `ROAST_DAILY_LIMIT` per client per day (429 when exceeded); clients are keyed by an HMAC of the IP — never store raw IPs
 - Same repo + same commit SHA → reuse the existing roast (no new Claude call)
 - `share_slug` is random and unguessable (e.g. `secrets.token_urlsafe(8)`), never the numeric id
 - Processing runs in the background (FastAPI `BackgroundTasks` for MVP); the POST returns 202
@@ -192,8 +189,6 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
   - 201: Created
   - 202: Accepted (submission queued for roasting)
   - 400: Bad Request
-  - 401: Unauthorized
-  - 403: Forbidden
   - 404: Not Found
   - 409: Conflict
   - 429: Too Many Requests
@@ -202,15 +197,8 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 
 ## Authentication
 
-### JWT Configuration
-- Access token expires: 30 minutes
-- Refresh token expires: 7 days (store only a hash in DB)
-- Algorithm: HS256
-
-### OAuth Providers
-- GitHub OAuth only (scope: `read:user`, optionally `user:email`)
-- Always generate and verify the `state` parameter for CSRF protection
-- Users are identified by `github_id` (stable), not username (can change)
+None. There are no accounts: anyone can roast a public repo. Abuse is bounded by the per-IP
+slowapi limits and the per-client `ROAST_DAILY_LIMIT`.
 
 ---
 
@@ -220,16 +208,8 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 # Database
 DATABASE_URL=postgresql://user:password@localhost:5432/assignment_roaster
 
-# Auth
+# HMAC key for client quota keys
 SECRET_KEY=your-secret-key-change-in-production
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# GitHub OAuth
-GITHUB_CLIENT_ID=your-client-id
-GITHUB_CLIENT_SECRET=your-client-secret
-GITHUB_REDIRECT_URI=http://localhost:8000/api/v1/auth/github/callback
 
 # GitHub API (server token for higher rate limits on public repo reads)
 GITHUB_API_TOKEN=ghp_...
@@ -288,7 +268,7 @@ test([module]): add tests for [feature]
 docs: update [documentation]
 ```
 
-Modules: `auth`, `submissions`, `analyzer`, `roast`, `share`, `dashboard`, `infra`
+Modules: `submissions`, `analyzer`, `roast`, `share`, `infra`
 
 ---
 

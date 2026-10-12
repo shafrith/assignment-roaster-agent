@@ -27,14 +27,10 @@ export type PublicAnalysisSummary = Omit<AnalysisSummary, 'hasEnvFileCommitted' 
 /** Analysis shape accepted by shared result components: owner view has the secret fields, public view doesn't. */
 export type AnalysisView = PublicAnalysisSummary & Partial<Pick<AnalysisSummary, 'hasEnvFileCommitted' | 'secretsFoundCount'>>;
 
-export interface PublicAuthor { githubUsername: string; avatarUrl: string | null; }
-
 /** GET /roasts/{shareSlug}: a roast in any status. `analysis`/`roast` are set only once completed. */
 export interface RoastStatusResponse {
   shareSlug: string; repoUrl: string; repoOwner: string; repoName: string;
   status: SubmissionStatus; errorMessage: string | null; errorRetryable: boolean;
-  /** Null for anonymous (no-login) roasts. */
-  author: PublicAuthor | null;
   analysis: PublicAnalysisSummary | null; roast: RoastResponse | null;
   createdAt: string; completedAt: string | null;
 }

@@ -1,11 +1,7 @@
-"""Shared Pydantic base models: camelCase wire format and pagination."""
+"""Shared Pydantic base model: camelCase wire format."""
 
-from typing import Generic, TypeVar
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
-
-T = TypeVar("T")
 
 
 class CamelModel(BaseModel):
@@ -16,12 +12,3 @@ class CamelModel(BaseModel):
         populate_by_name=True,
         from_attributes=True,
     )
-
-
-class Paginated(CamelModel, Generic[T]):
-    """A page of results: ``{items, total, page, pageSize}``."""
-
-    items: list[T]
-    total: int = Field(ge=0)
-    page: int = Field(ge=1)
-    page_size: int = Field(ge=1)

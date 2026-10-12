@@ -24,7 +24,6 @@ from app.models.base import TimestampMixin
 if TYPE_CHECKING:
     from app.models.repo_analysis import RepoAnalysis
     from app.models.roast import Roast
-    from app.models.user import User
 
 
 class SubmissionStatus(enum.StrEnum):
@@ -39,16 +38,7 @@ class SubmissionStatus(enum.StrEnum):
 
 class Submission(TimestampMixin, Base):
     __tablename__ = "submissions"
-    __table_args__ = (
-        # Dashboard list (newest first) and the per-user quota/ownership filters.
-        Index("ix_submissions_user_created", "user_id", "created_at"),
-    )
-
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    # NULL for anonymous (no-login) roasts, which are reached only through ``share_slug``.
-    user_id: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
-    )
     # Normalized https://github.com/{owner}/{repo}
     repo_url: Mapped[str] = mapped_column(String(300), nullable=False)
     repo_owner: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -75,14 +65,13 @@ class Submission(TimestampMixin, Base):
     deduped_from_submission_id: Mapped[int | None] = mapped_column(
         ForeignKey("submissions.id", ondelete="SET NULL"), nullable=True
     )
-    # The service layer sets this from user.default_roast_public; True is only a fallback.
+    # Always True for new roasts; legacy private roasts (login era) stay hidden.
     is_public: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default=true(), nullable=False
     )
     share_slug: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    user: Mapped["User | None"] = relationship(back_populates="submissions")
     analysis: Mapped["RepoAnalysis | None"] = relationship(
         back_populates="submission",
         uselist=False,

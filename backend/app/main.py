@@ -13,7 +13,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.config import settings
 from app.exceptions import register_exception_handlers
 from app.rate_limit import limiter
-from app.routers import auth, public, roasts, submissions
+from app.routers import public, roasts
 from app.services.pipeline import fail_stale_submissions, sweep_stale_submissions_forever
 
 API_PREFIX = "/api/v1"
@@ -77,15 +77,13 @@ def create_app() -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.FRONTEND_URL],
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
     register_exception_handlers(application)
 
-    application.include_router(auth.router, prefix=API_PREFIX)
-    application.include_router(submissions.router, prefix=API_PREFIX)
     application.include_router(public.router, prefix=API_PREFIX)
     application.include_router(roasts.router, prefix=API_PREFIX)
 

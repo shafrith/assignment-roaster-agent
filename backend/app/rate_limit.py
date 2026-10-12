@@ -1,8 +1,4 @@
-"""Shared slowapi rate limiter.
-
-Unauthenticated routes are keyed by client IP (:func:`client_ip`). Authenticated routes use
-:func:`user_or_ip_key`, which keys by the access token's user id so users behind one NAT or
-proxy don't share a bucket, and rotating IPs doesn't buy a fresh one.
+"""Shared slowapi rate limiter, keyed by client IP (:func:`client_ip`).
 
 Proxy awareness: the client IP is ``request.client.host`` and nothing here reads
 ``X-Forwarded-For``. Behind a reverse proxy, run uvicorn with ``--proxy-headers
@@ -12,10 +8,10 @@ when clients can reach uvicorn directly: they could spoof the header.
 
 Usage in routers::
 
-    from app.rate_limit import limiter, user_or_ip_key
+    from app.rate_limit import limiter
 
     @router.post("/thing")
-    @limiter.limit("10/minute", key_func=user_or_ip_key)
+    @limiter.limit("10/minute")
     async def thing(request: Request) -> ...:
         ...
 
@@ -28,11 +24,7 @@ import hmac
 from slowapi import Limiter
 from starlette.requests import Request
 
-from app.auth.jwt import decode_access_token
 from app.config import settings
-from app.exceptions import UnauthorizedError
-
-_BEARER_PREFIX = "bearer "
 
 
 def client_ip(request: Request) -> str:
@@ -48,8 +40,8 @@ def client_ip(request: Request) -> str:
     return f"ip:{host or 'unknown'}"
 
 
-def anonymous_client_key(request: Request) -> str:
-    """Return a stable, non-reversible quota key for an anonymous caller.
+def client_quota_key(request: Request) -> str:
+    """Return a stable, non-reversible daily-quota key for the caller.
 
     The key is an HMAC-SHA256 (keyed with ``SECRET_KEY``) of :func:`client_ip`, so the daily
     quota can be enforced per client without storing raw IP addresses.
@@ -63,29 +55,6 @@ def anonymous_client_key(request: Request) -> str:
     return hmac.new(
         settings.SECRET_KEY.encode(), client_ip(request).encode(), hashlib.sha256
     ).hexdigest()
-
-
-def user_or_ip_key(request: Request) -> str:
-    """Key by the authenticated user id when a valid access token is present, else by IP.
-
-    The token signature and expiry are verified, so a forged ``sub`` cannot borrow or exhaust
-    another user's bucket.
-
-    Args:
-        request: Incoming request.
-
-    Returns:
-        ``"user:<id>"`` or the :func:`client_ip` key.
-    """
-    authorization = request.headers.get("authorization", "")
-    if authorization.lower().startswith(_BEARER_PREFIX):
-        token = authorization[len(_BEARER_PREFIX) :].strip()
-        if token:
-            try:
-                return f"user:{decode_access_token(token)}"
-            except UnauthorizedError:
-                pass
-    return client_ip(request)
 
 
 limiter: Limiter = Limiter(

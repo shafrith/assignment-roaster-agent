@@ -39,11 +39,6 @@ jobs:
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql://roaster:roaster@localhost:5432/assignment_roaster_test
       SECRET_KEY: ci-dummy-secret-key-not-for-production
-      ACCESS_TOKEN_EXPIRE_MINUTES: "30"
-      REFRESH_TOKEN_EXPIRE_DAYS: "7"
-      GITHUB_CLIENT_ID: ci-dummy-client-id
-      GITHUB_CLIENT_SECRET: ci-dummy-client-secret
-      GITHUB_REDIRECT_URI: http://localhost:8000/api/v1/auth/github/callback
       GITHUB_API_TOKEN: ci-dummy-github-token
       ANTHROPIC_API_KEY: ci-dummy-anthropic-key
       ANTHROPIC_MODEL: claude-sonnet-5-5

@@ -15,8 +15,6 @@ import os
 os.environ["ENVIRONMENT"] = "test"
 os.environ.setdefault("DATABASE_URL", "postgresql://roaster:roaster@localhost:5437/roaster_test")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
-os.environ.setdefault("GITHUB_CLIENT_ID", "test-client-id")
-os.environ.setdefault("GITHUB_CLIENT_SECRET", "test-client-secret")
 os.environ.setdefault("FRONTEND_URL", "http://localhost:5173")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 
@@ -32,17 +30,16 @@ import respx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
+from starlette.requests import Request  # noqa: E402
 
 from app import models  # noqa: E402,F401
-from app.auth.jwt import create_access_token  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.repo_analysis import RepoAnalysis  # noqa: E402
 from app.models.roast import Roast  # noqa: E402
 from app.models.submission import Submission, SubmissionStatus  # noqa: E402
-from app.models.user import User  # noqa: E402
-from app.rate_limit import limiter  # noqa: E402
+from app.rate_limit import client_quota_key, limiter  # noqa: E402
 from app.services import roast_engine  # noqa: E402
 from tests.support import FakeAnthropic  # noqa: E402
 
@@ -109,42 +106,13 @@ def client(db: Session) -> Iterator[TestClient]:
         yield test_client
 
 
-@pytest.fixture
-def user_factory(db: Session) -> Callable[..., User]:
-    """Create users with unique GitHub ids."""
-
-    def make(**overrides: Any) -> User:
-        n = next(_ids)
-        fields: dict[str, Any] = {
-            "github_id": 10_000 + n,
-            "github_username": f"student{n}",
-            "display_name": f"Student {n}",
-            "avatar_url": f"https://avatars.example.com/{n}.png",
-            "email": f"student{n}@example.com",
-        }
-        fields.update(overrides)
-        user = User(**fields)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
-
-    return make
+def quota_key_for(host: str) -> str:
+    """The daily-quota key the app derives for a client at ``host``."""
+    return client_quota_key(Request({"type": "http", "headers": [], "client": (host, 50000)}))
 
 
-@pytest.fixture
-def user(user_factory: Callable[..., User]) -> User:
-    return user_factory()
-
-
-def headers_for(user: User) -> dict[str, str]:
-    """Bearer headers with a real access token for ``user``."""
-    return {"Authorization": f"Bearer {create_access_token(user.id)}"}
-
-
-@pytest.fixture
-def auth_headers(user: User) -> dict[str, str]:
-    return headers_for(user)
+# TestClient requests come from the "testclient" host.
+TEST_CLIENT_KEY = quota_key_for("testclient")
 
 
 @pytest.fixture
@@ -179,10 +147,9 @@ def rate_limiting() -> Iterator[None]:
 def completed_submission_factory(db: Session) -> Callable[..., Submission]:
     """Insert a completed submission with analysis and roast rows (no pipeline)."""
 
-    def make(owner_user: User, **overrides: Any) -> Submission:
+    def make(**overrides: Any) -> Submission:
         n = next(_ids)
         fields: dict[str, Any] = {
-            "user_id": owner_user.id,
             "repo_url": f"https://github.com/someone/repo{n}",
             "repo_owner": "someone",
             "repo_name": f"repo{n}",
