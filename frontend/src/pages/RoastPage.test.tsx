@@ -60,13 +60,13 @@ describe('RoastPage', () => {
 
   it('failed → error message + Retry button that calls retry', async () => {
     vi.spyOn(roastService, 'get').mockResolvedValue(
-      makeRoastStatus({ status: 'failed', ...inProgress, errorMessage: 'Claude busy machan 😴' }),
+      makeRoastStatus({ status: 'failed', ...inProgress, errorMessage: 'AI busy machan 😴' }),
     );
     const retry = vi.spyOn(roastService, 'retry').mockResolvedValue(makeRoastStatus({ status: 'pending', ...inProgress }));
     renderAt('/r/abc123');
 
     expect(await screen.findByText('Roast fail aayiduchu 😵')).toBeInTheDocument();
-    expect(screen.getByText('Claude busy machan 😴')).toBeInTheDocument();
+    expect(screen.getByText('AI busy machan 😴')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Retry pannu/ }));
     expect(retry).toHaveBeenCalledWith('abc123');
     expect(await screen.findByTestId('roast-status-loader')).toBeInTheDocument();

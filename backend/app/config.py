@@ -54,9 +54,9 @@ class Settings(BaseSettings):
     # GitHub API (server token, read-only public access)
     GITHUB_API_TOKEN: str = ""
 
-    # Anthropic
-    ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-sonnet-5-5"
+    # OpenAI (roast generation)
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4.1-mini"
 
     # Roaster limits
     ROAST_DAILY_LIMIT: int = Field(default=5, ge=0)
@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     MAX_SAMPLED_FILES: int = Field(default=30, gt=0)
     # Retries allowed per submission after its first attempt (each also counts toward the quota).
     ROAST_MAX_RETRIES: int = Field(default=2, ge=0)
-    # Pipelines (GitHub fetches + Claude call) allowed to run at once in this process.
+    # Pipelines (GitHub fetches + LLM call) allowed to run at once in this process.
     MAX_CONCURRENT_ROASTS: int = Field(default=3, gt=0)
 
     # URLs
@@ -146,7 +146,7 @@ class Settings(BaseSettings):
         """Log a warning for each optional third-party secret that is not configured."""
         optional_secrets = {
             "GITHUB_API_TOKEN": self.GITHUB_API_TOKEN,
-            "ANTHROPIC_API_KEY": self.ANTHROPIC_API_KEY,
+            "OPENAI_API_KEY": self.OPENAI_API_KEY,
         }
         for name, value in optional_secrets.items():
             if not value:

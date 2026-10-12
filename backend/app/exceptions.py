@@ -62,7 +62,7 @@ class RateLimitedError(AppError):
 
 
 class UpstreamError(AppError):
-    """An upstream service (GitHub, Anthropic) failed (502)."""
+    """An upstream service (GitHub, OpenAI) failed (502)."""
 
     status_code = status.HTTP_502_BAD_GATEWAY
     default_detail = "Upstream service failed."

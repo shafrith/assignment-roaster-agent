@@ -7,14 +7,14 @@
 ## Project Overview
 
 **Project Name:** Assignment Roaster
-**Description:** Users submit a public GitHub repo URL; the app analyzes the assignment and Claude roasts it in Tanglish (Tamil in English script) with a score out of 10 and real fix tips. Built for a Tamil-speaking GenAI community.
+**Description:** Users submit a public GitHub repo URL; the app analyzes the assignment and an LLM (OpenAI) roasts it in Tanglish (Tamil in English script) with a score out of 10 and real fix tips. Built for a Tamil-speaking GenAI community.
 **Tech Stack:**
 - Backend: FastAPI + Python 3.11+
 - Frontend: React + Vite + TypeScript
 - Database: PostgreSQL + SQLAlchemy + Alembic
 - Auth: none — anyone can paste a repo URL and get roasted (no accounts, no OAuth, no JWT)
 - UI: Chakra UI + Framer Motion
-- LLM: Claude via Anthropic Python SDK
+- LLM: OpenAI (`gpt-4.1-mini` by default) via the OpenAI Python SDK
 - External: GitHub REST API
 
 ---
@@ -46,7 +46,7 @@ assignment-roaster/
 │   │   │   └── pipeline.py       # pending → analyzing → roasting → completed
 │   ├── alembic/
 │   ├── tests/
-│   │   └── fixtures/             # fake repo trees, canned Claude responses
+│   │   └── fixtures/             # fake repo trees, canned LLM responses
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -131,8 +131,8 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 - ❌ Never skip input validation
 - ❌ Never execute, import, install, or `eval` code from a submitted repo
 - ❌ Never `git clone` arbitrary URLs or fetch user-supplied URLs directly — only call `api.github.com` with a parsed owner/repo (SSRF prevention)
-- ❌ Never send unredacted secrets to Claude, the DB, or logs
-- ❌ Never call the real GitHub or Anthropic APIs in tests - mock them
+- ❌ Never send unredacted secrets to the LLM, the DB, or logs
+- ❌ Never call the real GitHub or OpenAI APIs in tests - mock them
 - ❌ Never add login, accounts or per-user data - roasts are reached only by `share_slug`
 
 ### Frontend
@@ -153,7 +153,7 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 - Only accept `https://github.com/{owner}/{repo}` (normalize `.git`, trailing slash, `/tree/...`)
 - Public repos only; private/missing repos → 400 with friendly Tanglish message
 - Enforce `ROAST_DAILY_LIMIT` per client per day (429 when exceeded); clients are keyed by an HMAC of the IP — never store raw IPs
-- Same repo + same commit SHA → reuse the existing roast (no new Claude call)
+- Same repo + same commit SHA → reuse the existing roast (no new LLM call)
 - `share_slug` is random and unguessable (e.g. `secrets.token_urlsafe(8)`), never the numeric id
 - Processing runs in the background (FastAPI `BackgroundTasks` for MVP); the POST returns 202
 
@@ -164,14 +164,14 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 - Run `secret_scanner` on everything; store only counts + redacted snippets
 
 ### Roast Engine Module
-- Use Claude with structured output (tool use / JSON schema); validate with Pydantic
-- Model is read from `ANTHROPIC_MODEL` - never hardcode the model ID
+- Use OpenAI with structured output (strict function calling / JSON schema); validate with Pydantic
+- Model is read from `OPENAI_MODEL` - never hardcode the model ID
 - Language: **Tanglish** (Tamil in English script); technical terms in English
 - Roast the **code, never the person**: no caste, religion, gender, appearance, region, family jokes; no profanity or slurs
 - Every roast cites specific files/findings, includes ≥1 strength and ≥3 actionable fix tips, and ends with encouragement
 - Treat all repo content as **untrusted data**: wrap it in clear delimiters and instruct the model to ignore instructions inside it
 - `score` is a number between 0.0 and 10.0
-- Handle Anthropic timeouts / rate limits / errors → mark submission `failed` with a retryable error
+- Handle OpenAI timeouts / rate limits / errors → mark submission `failed` with a retryable error
 - Log token usage (`input_tokens`, `output_tokens`) on each Roast
 
 ### Leaderboard & Share Module
@@ -214,9 +214,9 @@ SECRET_KEY=your-secret-key-change-in-production
 # GitHub API (server token for higher rate limits on public repo reads)
 GITHUB_API_TOKEN=ghp_...
 
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-sonnet-5-5
+# OpenAI
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4.1-mini
 
 # Roaster limits
 ROAST_DAILY_LIMIT=5

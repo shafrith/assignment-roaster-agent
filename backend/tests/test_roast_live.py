@@ -1,6 +1,6 @@
-"""Opt-in prompt evals against the REAL Claude API (``pytest -m live``).
+"""Opt-in prompt evals against the REAL OpenAI API (``pytest -m live``).
 
-Skipped unless ``ANTHROPIC_API_KEY`` holds a real key; deselected by default via the pyproject
+Skipped unless ``OPENAI_API_KEY`` holds a real key; deselected by default via the pyproject
 ``-m 'not live'`` addopts, and never run in CI. GitHub is still mocked with the eval fixtures.
 """
 
@@ -17,12 +17,12 @@ from app.services.repo_analyzer import analyze_repo
 from app.services.roast_engine import generate_roast
 from tests.support import FIXTURE_SECRETS, FixtureRepo, mock_github_repos
 
-_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+_KEY = os.environ.get("OPENAI_API_KEY", "")
 _HAS_REAL_KEY = bool(_KEY) and not _KEY.startswith(("ci-dummy", "test-", "dummy"))
 
 pytestmark = [
     pytest.mark.live,
-    pytest.mark.skipif(not _HAS_REAL_KEY, reason="ANTHROPIC_API_KEY not set (live eval)"),
+    pytest.mark.skipif(not _HAS_REAL_KEY, reason="OPENAI_API_KEY not set (live eval)"),
 ]
 
 TANGLISH_MARKERS = (
@@ -46,7 +46,7 @@ async def roast_fixture(name: str) -> tuple[RoastResult, AnalysisResult]:
     repo = FixtureRepo(name)
     with respx.mock(assert_all_called=False) as router:
         mock_github_repos(router, repo)
-        router.route(host="api.anthropic.com").pass_through()
+        router.route(host="api.openai.com").pass_through()
         async with GitHubClient(token="") as gh:
             info: RepoInfo = await gh.get_repo_info(repo.owner, repo.name)
             analysis = await analyze_repo(gh, info)
@@ -79,7 +79,7 @@ def assert_valid_roast(result: RoastResult) -> None:
 
 @pytest.fixture(autouse=True)
 def _real_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", _KEY)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", _KEY)
 
 
 async def test_live_clean_repo() -> None:

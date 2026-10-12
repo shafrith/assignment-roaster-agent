@@ -1,4 +1,4 @@
-"""Shared test helpers: a GitHub API mock backed by the eval fixture repos and a fake Claude."""
+"""Shared test helpers: a GitHub API mock backed by the eval fixture repos and a fake OpenAI."""
 
 import json
 from pathlib import Path
@@ -116,7 +116,7 @@ def mock_github_repos(router: respx.MockRouter, *repos: FixtureRepo) -> respx.Ro
     return router.route(host=GITHUB_API_HOST).mock(side_effect=dispatch)
 
 
-# ---------------------------------------------------------------------------- fake Claude
+# ---------------------------------------------------------------------------- fake OpenAI
 
 
 def roast_input(**overrides: Any) -> dict[str, Any]:
@@ -141,50 +141,60 @@ def roast_input(**overrides: Any) -> dict[str, Any]:
 
 
 def tool_response(
-    tool_input: dict[str, Any] | None = None,
+    tool_input: dict[str, Any] | str | None = None,
     *,
     input_tokens: int = 1000,
     output_tokens: int = 300,
-    cache_creation_input_tokens: int = 0,
-    cache_read_input_tokens: int = 0,
-    model: str = "claude-test-model",
-    stop_reason: str = "tool_use",
+    model: str = "gpt-test-model",
+    finish_reason: str = "stop",
     name: str = "submit_roast",
+    refusal: str | None = None,
 ) -> SimpleNamespace:
-    """A Messages API-like response containing one ``tool_use`` block."""
+    """A Chat Completions-like response with one ``submit_roast`` function call.
+
+    ``tool_input`` may be a dict (JSON-encoded as the call's arguments) or a raw string.
+    """
+    data = roast_input() if tool_input is None else tool_input
+    arguments = data if isinstance(data, str) else json.dumps(data)
+    call = SimpleNamespace(
+        id="call_test",
+        type="function",
+        function=SimpleNamespace(name=name, arguments=arguments),
+    )
     return SimpleNamespace(
-        content=[
-            SimpleNamespace(type="thinking", thinking="hmm"),
+        choices=[
             SimpleNamespace(
-                type="tool_use",
-                id="toolu_test",
-                name=name,
-                input=roast_input() if tool_input is None else tool_input,
-            ),
+                index=0,
+                finish_reason=finish_reason,
+                message=SimpleNamespace(
+                    role="assistant", content=None, refusal=refusal, tool_calls=[call]
+                ),
+            )
         ],
-        stop_reason=stop_reason,
         model=model,
-        usage=SimpleNamespace(
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            cache_creation_input_tokens=cache_creation_input_tokens,
-            cache_read_input_tokens=cache_read_input_tokens,
-        ),
+        usage=SimpleNamespace(prompt_tokens=input_tokens, completion_tokens=output_tokens),
     )
 
 
 def text_response(text: str = "Sorry, here is my roast as text.") -> SimpleNamespace:
-    """A response with only a text block (no tool call)."""
+    """A response with only text content (no function call)."""
     return SimpleNamespace(
-        content=[SimpleNamespace(type="text", text=text)],
-        stop_reason="end_turn",
-        model="claude-test-model",
-        usage=SimpleNamespace(input_tokens=10, output_tokens=5),
+        choices=[
+            SimpleNamespace(
+                index=0,
+                finish_reason="stop",
+                message=SimpleNamespace(
+                    role="assistant", content=text, refusal=None, tool_calls=None
+                ),
+            )
+        ],
+        model="gpt-test-model",
+        usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
     )
 
 
-class FakeMessages:
-    """``client.messages`` stand-in: returns (or raises) queued items in order.
+class FakeCompletions:
+    """``client.chat.completions`` stand-in: returns (or raises) queued items in order.
 
     When one item is left it is reused for every further call.
     """
@@ -201,20 +211,29 @@ class FakeMessages:
         return item
 
 
-class FakeAnthropic:
-    """Minimal ``AsyncAnthropic`` stand-in."""
+class FakeOpenAI:
+    """Minimal ``AsyncOpenAI`` stand-in."""
 
     def __init__(self, *outputs: Any) -> None:
-        self.messages = FakeMessages(list(outputs) or [tool_response()])
+        self.completions = FakeCompletions(list(outputs) or [tool_response()])
+        self.chat = SimpleNamespace(completions=self.completions)
         self.closed = False
 
     def set_outputs(self, *outputs: Any) -> None:
         """Replace the queued responses."""
-        self.messages.outputs = list(outputs)
+        self.completions.outputs = list(outputs)
+
+    @property
+    def calls(self) -> list[dict[str, Any]]:
+        return self.completions.calls
 
     @property
     def call_count(self) -> int:
-        return len(self.messages.calls)
+        return len(self.completions.calls)
+
+    def user_prompt(self, index: int = 0) -> str:
+        """The user message content of the ``index``-th request."""
+        return str(self.calls[index]["messages"][1]["content"])
 
     async def close(self) -> None:
         self.closed = True

@@ -7,8 +7,8 @@ import weakref
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import anthropic
 import httpx
+import openai
 import pytest
 import respx
 from fastapi.testclient import TestClient
@@ -26,13 +26,13 @@ from app.rate_limit import client_ip, client_quota_key
 from app.services import pipeline, submission_service
 from app.services.pipeline import STALE_FAILURE_MESSAGE, fail_stale_submissions, run_pipeline
 from tests.conftest import TEST_CLIENT_KEY, quota_key_for
-from tests.support import FakeAnthropic, FixtureRepo, mock_github_repos
+from tests.support import FakeOpenAI, FixtureRepo, mock_github_repos
 from tests.test_roasts import URL, add_pending, by_slug, create
 
 
-def _always_fail_claude(fake_claude: FakeAnthropic) -> None:
-    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
-    fake_claude.set_outputs(anthropic.APITimeoutError(request=request))
+def _always_fail_llm(fake_llm: FakeOpenAI) -> None:
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    fake_llm.set_outputs(openai.APITimeoutError(request=request))
 
 
 def _status(db: Session, submission_id: int) -> SubmissionStatus:
@@ -49,37 +49,37 @@ def test_five_retries_exhaust_daily_quota(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Every retry is a quota attempt, so a failing repo can't burn unlimited Claude calls."""
+    """Every retry is a quota attempt, so a failing repo can't burn unlimited LLM calls."""
     monkeypatch.setattr(settings, "ROAST_DAILY_LIMIT", 5)
     monkeypatch.setattr(settings, "ROAST_MAX_RETRIES", 100)
     repo = FixtureRepo("clean_repo")
     mock_github_repos(github_mock, repo)
-    _always_fail_claude(fake_claude)
+    _always_fail_llm(fake_llm)
 
     slug = create(client, repo.url).json()["shareSlug"]  # attempt 1
     retry = f"{URL}/{slug}/retry"
     statuses = [client.post(retry).status_code for _ in range(5)]
     assert statuses == [202, 202, 202, 202, 429]  # attempts 2-5, then the quota is gone
     assert db.query(RoastAttempt).count() == 5
-    calls = fake_claude.call_count
+    calls = fake_llm.call_count
     assert create(client, repo.url).status_code == 429  # new submissions too
-    assert fake_claude.call_count == calls
+    assert fake_llm.call_count == calls
 
 
 def test_retry_cap_per_submission(
     client: TestClient,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "ROAST_DAILY_LIMIT", 100)
     monkeypatch.setattr(settings, "ROAST_MAX_RETRIES", 2)
     repo = FixtureRepo("clean_repo")
     mock_github_repos(github_mock, repo)
-    _always_fail_claude(fake_claude)
+    _always_fail_llm(fake_llm)
 
     slug = create(client, repo.url).json()["shareSlug"]
     retry = f"{URL}/{slug}/retry"
@@ -97,7 +97,7 @@ def test_retry_refused_for_deterministic_failure(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
     failure: str,
 ) -> None:
     if failure == "private":
@@ -112,7 +112,7 @@ def test_retry_refused_for_deterministic_failure(
     assert response.status_code == 409
     assert response.json() == {"detail": submission_service.RETRY_NOT_RETRYABLE_MESSAGE}
     assert db.query(RoastAttempt).count() == 1  # the refused retry cost nothing
-    assert fake_claude.call_count == 0
+    assert fake_llm.call_count == 0
 
 
 def test_transient_failure_is_retryable(
@@ -282,7 +282,7 @@ def test_swept_submission_is_not_completed_by_late_pipeline(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """COR-3: a pipeline whose row was failed meanwhile must not overwrite it."""
@@ -301,7 +301,7 @@ def test_swept_submission_is_not_completed_by_late_pipeline(
     done = client.get(f"{URL}/{slug}").json()
     assert done["status"] == "failed"
     assert done["errorMessage"] == STALE_FAILURE_MESSAGE
-    assert fake_claude.call_count == 0
+    assert fake_llm.call_count == 0
     assert db.query(RepoAnalysis).count() == 0
 
 
@@ -309,7 +309,7 @@ def test_dedupe_ignores_roasts_from_older_prompt_versions(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     """COR-7: a prompt change invalidates previously generated roasts for dedupe."""
     repo = FixtureRepo("clean_repo")
@@ -322,7 +322,7 @@ def test_dedupe_ignores_roasts_from_older_prompt_versions(
     first.roast.prompt_version = "1999-01-01.0"
     db.commit()
     second_slug = create(client, repo.url).json()["shareSlug"]
-    assert fake_claude.call_count == 2  # not deduped against the old-prompt roast
+    assert fake_llm.call_count == 2  # not deduped against the old-prompt roast
     assert by_slug(db, second_slug).deduped_from_submission_id is None
 
 

@@ -6,7 +6,7 @@ never raises. Each status change is committed so polling clients can follow prog
 Concurrency and robustness:
 
 - A process-wide semaphore (``MAX_CONCURRENT_ROASTS``) bounds how many pipelines hit GitHub and
-  Claude at once; queued submissions simply stay ``pending`` (PERF-2).
+  the LLM at once; queued submissions simply stay ``pending`` (PERF-2).
 - Every status change is a compare-and-set ``UPDATE ... WHERE status IN (...)``, so a duplicate
   run, a sweep, or a retry can never be overwritten by a stale writer (COR-3).
 - A running pipeline is bounded by :data:`PIPELINE_TIMEOUT_SECONDS`. Background tasks die with
@@ -37,7 +37,7 @@ from app.services.roast_engine import generate_roast
 
 logger = logging.getLogger(__name__)
 
-# A pipeline that has started running is cancelled after this long (GitHub fetches + Claude).
+# A pipeline that has started running is cancelled after this long (GitHub fetches + LLM).
 PIPELINE_TIMEOUT_SECONDS = 10 * 60
 # Non-terminal submissions untouched for longer than this are orphans (> pipeline timeout).
 STALE_SUBMISSION_MINUTES = 12

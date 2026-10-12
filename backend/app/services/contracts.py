@@ -175,7 +175,7 @@ class GitHubUnavailableError(PipelineError):
 
 
 class RoastGenerationError(PipelineError):
-    """Claude API failure or invalid structured output after retry."""
+    """LLM API failure or invalid structured output after retry."""
 
     status_code = status.HTTP_502_BAD_GATEWAY
-    default_detail = "Claude-kku roast panna mood illa, retry pannu 🔁"
+    default_detail = "AI-kku roast panna mood illa, retry pannu 🔁"

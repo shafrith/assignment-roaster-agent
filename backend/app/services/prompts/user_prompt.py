@@ -1,4 +1,4 @@
-"""Build the user message sent to Claude for a roast.
+"""Build the user message sent to the model for a roast.
 
 Layout::
 

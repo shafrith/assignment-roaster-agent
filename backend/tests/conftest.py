@@ -41,7 +41,7 @@ from app.models.roast import Roast  # noqa: E402
 from app.models.submission import Submission, SubmissionStatus  # noqa: E402
 from app.rate_limit import client_quota_key, limiter  # noqa: E402
 from app.services import roast_engine  # noqa: E402
-from tests.support import FakeAnthropic  # noqa: E402
+from tests.support import FakeOpenAI  # noqa: E402
 
 _TABLES = ", ".join(table.name for table in reversed(Base.metadata.sorted_tables))
 _ids = count(1)
@@ -123,10 +123,10 @@ def github_mock() -> Iterator[respx.MockRouter]:
 
 
 @pytest.fixture
-def fake_claude(monkeypatch: pytest.MonkeyPatch) -> FakeAnthropic:
-    """Patch the roast engine's client factory with a fake Claude (never the real API)."""
-    fake = FakeAnthropic()
-    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "test-anthropic-key")
+def fake_llm(monkeypatch: pytest.MonkeyPatch) -> FakeOpenAI:
+    """Patch the roast engine's client factory with a fake OpenAI (never the real API)."""
+    fake = FakeOpenAI()
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "test-openai-key")
     monkeypatch.setattr(roast_engine, "client_factory", lambda: fake)
     return fake
 
@@ -186,7 +186,7 @@ def completed_submission_factory(db: Session) -> Callable[..., Submission]:
                     {"category": "testing", "severity": "high", "file": None, "message": "No tests"}
                 ],
                 fix_tips=["a", "b", "c"],
-                model="claude-test-model",
+                model="gpt-test-model",
                 input_tokens=10,
                 output_tokens=5,
             )

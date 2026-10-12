@@ -40,8 +40,8 @@ jobs:
       DATABASE_URL: postgresql://roaster:roaster@localhost:5432/assignment_roaster_test
       SECRET_KEY: ci-dummy-secret-key-not-for-production
       GITHUB_API_TOKEN: ci-dummy-github-token
-      ANTHROPIC_API_KEY: ci-dummy-anthropic-key
-      ANTHROPIC_MODEL: claude-sonnet-5-5
+      OPENAI_API_KEY: ci-dummy-openai-key
+      OPENAI_MODEL: gpt-4.1-mini
       ROAST_DAILY_LIMIT: "5"
       MAX_REPO_SIZE_MB: "50"
       MAX_SAMPLED_FILES: "30"

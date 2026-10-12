@@ -1,12 +1,12 @@
-"""Roast endpoints (no login) and the background pipeline (GitHub fixture repos + fake Claude)."""
+"""Roast endpoints (no login) and the background pipeline (GitHub fixture repos + fake OpenAI)."""
 
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import anthropic
 import httpx
+import openai
 import pytest
 import respx
 from fastapi.testclient import TestClient
@@ -35,7 +35,7 @@ from app.services.pipeline import (
 from tests.conftest import TEST_CLIENT_KEY
 from tests.support import (
     FIXTURE_SECRETS,
-    FakeAnthropic,
+    FakeOpenAI,
     FixtureRepo,
     mock_github_repos,
     roast_input,
@@ -81,7 +81,7 @@ def test_create_runs_pipeline_end_to_end(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     repo = FixtureRepo("clean_repo")
     mock_github_repos(github_mock, repo)
@@ -122,8 +122,8 @@ def test_create_runs_pipeline_end_to_end(
     assert "secretsFoundCount" not in analysis and "hasEnvFileCommitted" not in analysis
     assert "has_readme" not in detail.text  # camelCase on the wire
 
-    assert fake_claude.call_count == 1
-    prompt = fake_claude.messages.calls[0]["messages"][0]["content"]
+    assert fake_llm.call_count == 1
+    prompt = fake_llm.user_prompt()
     assert "app/llm.py" in prompt
 
     sub = by_slug(db, slug)
@@ -144,11 +144,11 @@ def test_messy_repo_secrets_never_stored_or_sent(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     repo = FixtureRepo("messy_repo")
     mock_github_repos(github_mock, repo)
-    fake_claude.set_outputs(tool_response(roast_input(score=8.0)))
+    fake_llm.set_outputs(tool_response(roast_input(score=8.0)))
 
     slug = create(client, repo.url).json()["shareSlug"]
     done = client.get(f"{URL}/{slug}").json()
@@ -162,7 +162,7 @@ def test_messy_repo_secrets_never_stored_or_sent(
     assert analysis_row is not None
     assert analysis_row.has_env_file_committed is True
     assert analysis_row.secrets_found_count > 0
-    prompt = fake_claude.messages.calls[0]["messages"][0]["content"]
+    prompt = fake_llm.user_prompt()
     stored = json.dumps(
         {c.key: getattr(analysis_row, c.key) for c in RepoAnalysis.__table__.columns},
         default=str,
@@ -199,7 +199,7 @@ def test_create_validation(client: TestClient, body: dict) -> None:
 def test_private_repo_fails_with_tanglish_message(
     client: TestClient,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
     private_style: str,
 ) -> None:
     if private_style == "flag":
@@ -211,13 +211,13 @@ def test_private_repo_fails_with_tanglish_message(
     assert done["status"] == "failed"
     assert done["errorMessage"] == RepoNotFoundError.default_detail
     assert done["errorRetryable"] is False
-    assert fake_claude.call_count == 0
+    assert fake_llm.call_count == 0
 
 
 def test_repo_too_large_fails(
     client: TestClient,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     repo = FixtureRepo("clean_repo", size_kb=settings.max_repo_size_kb + 1)
     mock_github_repos(github_mock, repo)
@@ -230,7 +230,7 @@ def test_repo_too_large_fails(
 def test_github_outage_fails(
     client: TestClient,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     github_mock.route(host="api.github.com").respond(503)
     slug = create(client, "https://github.com/a/b").json()["shareSlug"]
@@ -248,15 +248,15 @@ def test_in_progress_roast_hides_partial_results(client: TestClient, db: Session
     assert body["roast"] is None
 
 
-def test_claude_failure_then_retry_succeeds(
+def test_llm_failure_then_retry_succeeds(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     mock_github_repos(github_mock, FixtureRepo("clean_repo"))
-    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
-    fake_claude.set_outputs(anthropic.APITimeoutError(request=request), tool_response())
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    fake_llm.set_outputs(openai.APITimeoutError(request=request), tool_response())
 
     slug = create(client).json()["shareSlug"]
     failed = client.get(f"{URL}/{slug}").json()
@@ -272,7 +272,7 @@ def test_claude_failure_then_retry_succeeds(
     done = client.get(f"{URL}/{slug}").json()
     assert done["status"] == "completed"
     assert done["roast"]["score"] == 7.5
-    assert fake_claude.call_count == 2
+    assert fake_llm.call_count == 2
     assert db.query(RepoAnalysis).count() == 1
 
 
@@ -297,7 +297,7 @@ def test_dedupe_reuses_existing_roast(
     client: TestClient,
     db: Session,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     repo = FixtureRepo("clean_repo")
     mock_github_repos(github_mock, repo)
@@ -306,7 +306,7 @@ def test_dedupe_reuses_existing_roast(
     contents_after_first = len(repo.content_requests)
     second_slug = create(client, "https://github.com/EVAL-FIXTURES/Clean_Repo").json()["shareSlug"]
 
-    assert fake_claude.call_count == 1  # second submission reused the roast
+    assert fake_llm.call_count == 1  # second submission reused the roast
     assert len(repo.content_requests) == contents_after_first  # and the analysis
     a = client.get(f"{URL}/{first_slug}").json()
     b = client.get(f"{URL}/{second_slug}").json()
@@ -319,20 +319,20 @@ def test_dedupe_reuses_existing_roast(
     copy = by_slug(db, second_slug)
     assert copy.deduped_from_submission_id == by_slug(db, first_slug).id
     assert copy.roast is not None
-    assert (copy.roast.input_tokens, copy.roast.output_tokens) == (0, 0)  # no Claude spend
+    assert (copy.roast.input_tokens, copy.roast.output_tokens) == (0, 0)  # no LLM spend
 
 
 def test_new_commit_is_not_deduped(
     client: TestClient,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     repo = FixtureRepo("clean_repo")
     mock_github_repos(github_mock, repo)
     create(client, repo.url)
     repo.head_sha = "f" * 40
     create(client, repo.url)
-    assert fake_claude.call_count == 2
+    assert fake_llm.call_count == 2
 
 
 # ---------------------------------------------------------------------------- run_pipeline direct
@@ -366,7 +366,7 @@ def test_daily_quota_per_client(
     db: Session,
     monkeypatch: pytest.MonkeyPatch,
     github_mock: respx.MockRouter,
-    fake_claude: FakeAnthropic,
+    fake_llm: FakeOpenAI,
 ) -> None:
     mock_github_repos(github_mock, FixtureRepo("clean_repo"))
     monkeypatch.setattr(settings, "ROAST_DAILY_LIMIT", 2)

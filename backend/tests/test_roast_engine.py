@@ -1,12 +1,12 @@
-"""Roast engine: output validation, retries, score rules, and prompt construction (fake Claude)."""
+"""Roast engine: output validation, retries, score rules, and prompt construction (fake OpenAI)."""
 
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-import anthropic
 import httpx
+import openai
 import pytest
 
 from app.config import settings
@@ -35,7 +35,7 @@ from app.services.roast_engine import (
     parse_roast_response,
 )
 from app.services.secret_scanner import REDACTED
-from tests.support import FakeAnthropic, roast_input, text_response, tool_response
+from tests.support import FakeOpenAI, roast_input, text_response, tool_response
 
 INFO = RepoInfo("octo", "repo", "main", "d" * 40, size_kb=10, is_private=False)
 SECRET_FINDING = Finding("security", "critical", "1 hardcoded secret. Value redacted.", ".env")
@@ -53,49 +53,39 @@ def analysis(**overrides: Any) -> AnalysisResult:
     return result
 
 
-async def roast(fake: FakeAnthropic, **analysis_overrides: Any) -> roast_engine.RoastResult:
+async def roast(fake: FakeOpenAI, **analysis_overrides: Any) -> roast_engine.RoastResult:
     return await generate_roast(INFO, analysis(**analysis_overrides), client=fake)  # type: ignore[arg-type]
 
 
 def _request() -> httpx.Request:
-    return httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    return httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
 
 
 # ---------------------------------------------------------------------------- happy path
 
 
 async def test_valid_output_parsed() -> None:
-    fake = FakeAnthropic(
-        tool_response(
-            input_tokens=1000,
-            output_tokens=300,
-            cache_creation_input_tokens=50,
-            cache_read_input_tokens=25,
-        )
-    )
+    fake = FakeOpenAI(tool_response(input_tokens=1000, output_tokens=300))
     result = await roast(fake)
     assert result.score == Decimal("7.5")
     assert result.verdict_title == "Production Ready Ponnusamy"
     assert result.strengths == ["Clean folder structure"]
     assert result.issues == [Finding("testing", "medium", "Only one test file.", None)]
     assert len(result.fix_tips) == 3
-    assert result.model == "claude-test-model"
-    assert result.input_tokens == 1075
+    assert result.model == "gpt-test-model"
+    assert result.input_tokens == 1000
     assert result.output_tokens == 300
     assert fake.call_count == 1
     assert not fake.closed  # caller-owned client is not closed
 
-    call = fake.messages.calls[0]
-    assert call["model"] == settings.ANTHROPIC_MODEL
+    call = fake.calls[0]
+    assert call["model"] == settings.OPENAI_MODEL == "gpt-4.1-mini"
     assert call["tools"] == [ROAST_TOOL]
-    assert call["tool_choice"] == {"type": "auto", "disable_parallel_tool_use": True}
-    assert call["system"][0]["cache_control"] == {"type": "ephemeral"}
-    assert call["messages"][0]["role"] == "user"
-    assert call["max_tokens"] == roast_engine.ROAST_MAX_TOKENS >= 16_000
-    assert call["output_config"] == {"effort": roast_engine.ROAST_EFFORT}
-    assert "thinking" not in call  # thinking can't be disabled on current models
-    assert call["extra_body"] == {"fallbacks": "default"}
-    assert call["extra_headers"] == {"anthropic-beta": roast_engine.FALLBACK_BETA}
+    assert call["tool_choice"] == {"type": "function", "function": {"name": TOOL_NAME}}
+    assert call["parallel_tool_calls"] is False
+    assert [m["role"] for m in call["messages"]] == ["system", "user"]
+    assert call["messages"][0]["content"] == load_system_prompt()
+    assert call["max_completion_tokens"] == roast_engine.ROAST_MAX_TOKENS
 
 
 def _walk_schema(node: Any) -> list[dict[str, Any]]:
@@ -111,9 +101,12 @@ def _walk_schema(node: Any) -> list[dict[str, Any]]:
 
 
 def test_roast_tool_is_strict_compatible() -> None:
-    assert ROAST_TOOL.get("strict") is True
+    assert ROAST_TOOL["type"] == "function"
+    function = ROAST_TOOL["function"]
+    assert function["name"] == TOOL_NAME
+    assert function.get("strict") is True
     unsupported = {"minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems"}
-    for node in _walk_schema(ROAST_TOOL["input_schema"]):
+    for node in _walk_schema(function["parameters"]):
         assert not unsupported & node.keys(), node
         if node.get("type") == "object":
             assert node.get("additionalProperties") is False
@@ -152,12 +145,12 @@ def test_normalize_score_secret_cap() -> None:
 
 
 async def test_score_clamped_in_roast() -> None:
-    result = await roast(FakeAnthropic(tool_response(roast_input(score=11.26))))
+    result = await roast(FakeOpenAI(tool_response(roast_input(score=11.26))))
     assert result.score == Decimal("10.0")
 
 
 async def test_secret_caps_score_and_merges_critical_finding() -> None:
-    fake = FakeAnthropic(tool_response(roast_input(score=9.4)))
+    fake = FakeOpenAI(tool_response(roast_input(score=9.4)))
     result = await roast(fake, secrets_found_count=2, findings=[SECRET_FINDING])
     assert result.score == Decimal("4.0")
     assert result.issues[0] == SECRET_FINDING
@@ -179,7 +172,7 @@ def test_normalize_score_injection_cap(finding: Finding) -> None:
 
 async def test_injection_caps_score_in_roast() -> None:
     result = await roast(
-        FakeAnthropic(tool_response(roast_input(score=10))), findings=[INJECTION_FINDING]
+        FakeOpenAI(tool_response(roast_input(score=10))), findings=[INJECTION_FINDING]
     )
     assert result.score == roast_engine.INJECTION_SCORE_CAP
 
@@ -206,7 +199,7 @@ async def test_model_output_is_secret_scanned() -> None:
             }
         ],
     )
-    result = await roast(FakeAnthropic(tool_response(leaky)))
+    result = await roast(FakeOpenAI(tool_response(leaky)))
     blob = json.dumps(result.to_model_kwargs(), default=str)
     for secret in (LEAKED_KEY, "SuperS3cretPass", "hunter2hunter2xx"):
         assert secret not in blob
@@ -251,7 +244,7 @@ def test_merge_critical_findings_skips_covered_and_non_critical() -> None:
 
 
 async def test_invalid_then_valid_retries_once() -> None:
-    fake = FakeAnthropic(
+    fake = FakeOpenAI(
         tool_response(roast_input(fix_tips=["only one"]), input_tokens=100, output_tokens=10),
         tool_response(input_tokens=200, output_tokens=20),
     )
@@ -262,7 +255,7 @@ async def test_invalid_then_valid_retries_once() -> None:
 
 
 async def test_missing_tool_call_then_valid() -> None:
-    fake = FakeAnthropic(text_response(), tool_response())
+    fake = FakeOpenAI(text_response(), tool_response())
     result = await roast(fake)
     assert fake.call_count == 2
     assert result.score == Decimal("7.5")
@@ -289,24 +282,38 @@ async def test_missing_tool_call_then_valid() -> None:
     ],
 )
 async def test_two_invalid_outputs_raise(bad: Any) -> None:
-    fake = FakeAnthropic(bad)
+    fake = FakeOpenAI(bad)
     with pytest.raises(RoastGenerationError):
         await roast(fake)
     assert fake.call_count == 2
 
 
-@pytest.mark.parametrize("stop_reason", ["max_tokens", "refusal"])
-async def test_refusal_and_truncation_fail_without_retry(stop_reason: str) -> None:
-    # An identical re-send would refuse/truncate again; the server-side fallback already ran.
-    fake = FakeAnthropic(tool_response(stop_reason=stop_reason), tool_response())
+@pytest.mark.parametrize(
+    "unusable",
+    [
+        tool_response(finish_reason="length"),
+        tool_response(finish_reason="content_filter"),
+        tool_response(refusal="I can't help with that."),
+    ],
+)
+async def test_refusal_and_truncation_fail_without_retry(unusable: Any) -> None:
+    # An identical re-send would refuse/truncate again, so it is not paid for twice.
+    fake = FakeOpenAI(unusable, tool_response())
     with pytest.raises(RoastGenerationError):
         await roast(fake)
     assert fake.call_count == 1
 
 
-def test_parse_flags_unusable_stop_reason() -> None:
+def test_parse_flags_unusable_responses() -> None:
     with pytest.raises(roast_engine.UnusableResponseError):
-        parse_roast_response(tool_response(stop_reason="refusal"))
+        parse_roast_response(tool_response(refusal="no"))
+    with pytest.raises(roast_engine.UnusableResponseError):
+        parse_roast_response(tool_response(finish_reason="length"))
+
+
+def test_parse_rejects_non_json_arguments() -> None:
+    with pytest.raises(ValueError):
+        parse_roast_response(tool_response("{not json"))
 
 
 def test_parse_accepts_json_string_lists_and_cleans_fields() -> None:
@@ -332,7 +339,7 @@ def test_parse_rejects_unparseable_json_string() -> None:
         parse_roast_response(tool_response(roast_input(fix_tips="[not json")))
 
 
-def test_parse_without_content() -> None:
+def test_parse_without_choices() -> None:
     with pytest.raises(ValueError):
         parse_roast_response(object())
 
@@ -340,15 +347,15 @@ def test_parse_without_content() -> None:
 async def test_usage_missing_is_zero() -> None:
     response = tool_response()
     response.usage = None
-    result = await roast(FakeAnthropic(response))
+    result = await roast(FakeOpenAI(response))
     assert (result.input_tokens, result.output_tokens) == (0, 0)
 
 
 async def test_response_without_model_keeps_configured_model() -> None:
     response = tool_response()
     response.model = None
-    result = await roast(FakeAnthropic(response))
-    assert result.model == settings.ANTHROPIC_MODEL
+    result = await roast(FakeOpenAI(response))
+    assert result.model == settings.OPENAI_MODEL
 
 
 # ---------------------------------------------------------------------------- API errors
@@ -357,21 +364,22 @@ async def test_response_without_model_keeps_configured_model() -> None:
 @pytest.mark.parametrize(
     "error",
     [
-        anthropic.APITimeoutError(request=_request()),
-        anthropic.APIConnectionError(request=_request()),
-        anthropic.RateLimitError(
+        openai.APITimeoutError(request=_request()),
+        openai.APIConnectionError(request=_request()),
+        openai.RateLimitError(
             "rate limited", response=httpx.Response(429, request=_request()), body=None
         ),
-        anthropic.InternalServerError(
-            "overloaded", response=httpx.Response(529, request=_request()), body=None
+        openai.InternalServerError(
+            "overloaded", response=httpx.Response(503, request=_request()), body=None
         ),
-        anthropic.BadRequestError(
-            "bad", response=httpx.Response(400, request=_request()), body=None
+        openai.BadRequestError("bad", response=httpx.Response(400, request=_request()), body=None),
+        openai.AuthenticationError(
+            "bad key", response=httpx.Response(401, request=_request()), body=None
         ),
     ],
 )
 async def test_api_errors_mapped(error: Exception) -> None:
-    fake = FakeAnthropic(error)
+    fake = FakeOpenAI(error)
     with pytest.raises(RoastGenerationError) as exc_info:
         await roast(fake)
     assert exc_info.value.__cause__ is error
@@ -379,7 +387,7 @@ async def test_api_errors_mapped(error: Exception) -> None:
 
 
 async def test_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
     factory_calls: list[int] = []
     monkeypatch.setattr(roast_engine, "client_factory", lambda: factory_calls.append(1))
     with pytest.raises(RoastGenerationError):
@@ -387,23 +395,23 @@ async def test_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     assert factory_calls == []
 
 
-async def test_factory_client_is_closed(fake_claude: FakeAnthropic) -> None:
+async def test_factory_client_is_closed(fake_llm: FakeOpenAI) -> None:
     result = await generate_roast(INFO, analysis())
     assert result.score == Decimal("7.5")
-    assert fake_claude.closed
+    assert fake_llm.closed
 
 
-async def test_factory_client_closed_on_error(fake_claude: FakeAnthropic) -> None:
-    fake_claude.set_outputs(anthropic.APIConnectionError(request=_request()))
+async def test_factory_client_closed_on_error(fake_llm: FakeOpenAI) -> None:
+    fake_llm.set_outputs(openai.APIConnectionError(request=_request()))
     with pytest.raises(RoastGenerationError):
         await generate_roast(INFO, analysis())
-    assert fake_claude.closed
+    assert fake_llm.closed
 
 
 def test_default_client_factory(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-test")
     client = roast_engine._default_client_factory()
-    assert isinstance(client, anthropic.AsyncAnthropic)
+    assert isinstance(client, openai.AsyncOpenAI)
     assert client.max_retries == roast_engine.SDK_MAX_RETRIES
 
 

@@ -2,7 +2,7 @@
 export const LOADING_LINES: readonly string[] = [
   'Un code-a padichitu irukkom... konjam wait pannu 🍿',
   'README-a thedurom... kidaikala pola 🔍',
-  'Claude-kku chai kuduthu roast ready pannirukkom ☕',
+  'AI-kku chai kuduthu roast ready pannirukkom ☕',
   'Commit history paathu siruchitu irukkom 😂',
   '"final_final_v2.py" file-a paathu shock aayitom 😳',
   'Tests irukka nu check panrom... nambikkai illa 🧪',

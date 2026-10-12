@@ -1,8 +1,9 @@
-"""Generate a structured Tanglish roast of an analyzed repository with Claude.
+"""Generate a structured Tanglish roast of an analyzed repository with OpenAI.
 
-Claude must answer through the strict ``submit_roast`` tool. The tool input is validated (and
-length-bounded) with :class:`RoastOutput`; invalid or missing output is retried once, while a
-refusal or ``max_tokens`` truncation fails immediately with :class:`RoastGenerationError`. Score
+The model must answer by calling the strict ``submit_roast`` function (forced ``tool_choice``).
+The arguments are validated (and length-bounded) with :class:`RoastOutput`; invalid or missing
+output is retried once, while a refusal, content filter or ``length`` truncation fails
+immediately with :class:`RoastGenerationError`. Score
 rules that matter for fairness (0-10 clamp, the committed-secret cap, the prompt-injection cap)
 are enforced here in code, not left to the model, and every output string is run through the
 secret scanner before it is returned.
@@ -14,11 +15,11 @@ import json
 import logging
 from collections.abc import Callable
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any, Literal
+from typing import Any
 
-import anthropic
-from anthropic import AsyncAnthropic
-from anthropic.types import MessageParam, TextBlockParam, ToolChoiceAutoParam, ToolParam
+import openai
+from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -51,16 +52,9 @@ TOOL_NAME = "submit_roast"
 REQUEST_TIMEOUT_SECONDS = 120.0
 SDK_MAX_RETRIES = 1
 MAX_ATTEMPTS = 2  # initial call + one retry on invalid/missing tool output (never on refusal)
-# Thinking is always on for current models and counts toward max_tokens; 16K is the recommended
-# non-streaming ceiling and leaves ample headroom above the ~2-4K tokens a roast needs.
-ROAST_MAX_TOKENS = 16_000
-# A roast is a bounded, single-shot review: "medium" keeps cost/latency predictable (the default
-# differs per model, so it is set explicitly). Re-measure on real repos before raising it.
-ROAST_EFFORT: Literal["low", "medium", "high"] = "medium"
-# Server-side refusal fallback: a classifier decline is re-run on Anthropic's recommended fallback
-# model inside the same call instead of us re-sending an identical request.
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
-UNUSABLE_STOP_REASONS = frozenset({"max_tokens", "refusal"})
+# A roast needs ~2-4K output tokens; the cap bounds cost if the model rambles.
+ROAST_MAX_TOKENS = 8_000
+UNUSABLE_FINISH_REASONS = frozenset({"length", "content_filter"})
 
 SECRET_SCORE_CAP = Decimal("4.0")
 # A detected prompt-injection attempt can never be rewarded with a near-perfect score, whatever
@@ -102,66 +96,71 @@ def _clip(value: str, limit: int) -> str:
     return value[: limit - 1].rstrip() + "…"
 
 
-# Strict tool use guarantees schema-valid input. Strict mode does not support numeric, string
-# length, or array-size constraints, so those limits live in the descriptions and are enforced by
-# RoastOutput (Pydantic) after the call.
-ROAST_TOOL: ToolParam = {
-    "name": TOOL_NAME,
-    "description": (
-        "Submit the final roast of the repository. Call this exactly once with the score, "
-        "verdict title, Tanglish markdown roast, strengths, issues, and fix tips."
-    ),
-    "strict": True,
-    "input_schema": {
-        "type": "object",
-        "additionalProperties": False,
-        "required": ["score", "verdict_title", "roast_text", "strengths", "issues", "fix_tips"],
-        "properties": {
-            "score": {
-                "type": "number",
-                "description": "Score from 0 to 10 with at most one decimal.",
-            },
-            "verdict_title": {
-                "type": "string",
-                "description": f"Short Tanglish nickname (~6 words, <={VERDICT_MAX_LENGTH} chars).",
-            },
-            "roast_text": {
-                "type": "string",
-                "description": "Tanglish markdown roast, 150-400 words.",
-            },
-            "strengths": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": f"1-{MAX_STRENGTHS} genuine, specific strengths.",
-            },
-            "issues": {
-                "type": "array",
-                "description": f"The most important problems (typically 3-8, max {MAX_ISSUES}).",
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["category", "severity", "file", "message"],
-                    "properties": {
-                        "category": {"type": "string", "enum": CATEGORIES},
-                        "severity": {"type": "string", "enum": SEVERITIES},
-                        "file": {
-                            "anyOf": [{"type": "string"}, {"type": "null"}],
-                            "description": "Repo path the issue is about, or null.",
-                        },
-                        "message": {"type": "string"},
+# Strict function calling guarantees schema-valid arguments. Strict mode does not support
+# numeric, string length, or array-size constraints, so those limits live in the descriptions
+# and are enforced by RoastOutput (Pydantic) after the call.
+ROAST_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["score", "verdict_title", "roast_text", "strengths", "issues", "fix_tips"],
+    "properties": {
+        "score": {
+            "type": "number",
+            "description": "Score from 0 to 10 with at most one decimal.",
+        },
+        "verdict_title": {
+            "type": "string",
+            "description": f"Short Tanglish nickname (~6 words, <={VERDICT_MAX_LENGTH} chars).",
+        },
+        "roast_text": {
+            "type": "string",
+            "description": "Tanglish markdown roast, 150-400 words.",
+        },
+        "strengths": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": f"1-{MAX_STRENGTHS} genuine, specific strengths.",
+        },
+        "issues": {
+            "type": "array",
+            "description": f"The most important problems (typically 3-8, max {MAX_ISSUES}).",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["category", "severity", "file", "message"],
+                "properties": {
+                    "category": {"type": "string", "enum": CATEGORIES},
+                    "severity": {"type": "string", "enum": SEVERITIES},
+                    "file": {
+                        "anyOf": [{"type": "string"}, {"type": "null"}],
+                        "description": "Repo path the issue is about, or null.",
                     },
+                    "message": {"type": "string"},
                 },
             },
-            "fix_tips": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": f"3-{MAX_FIX_TIPS} actionable fixes, most impactful first.",
-            },
+        },
+        "fix_tips": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": f"3-{MAX_FIX_TIPS} actionable fixes, most impactful first.",
         },
     },
 }
 
-ClientFactory = Callable[[], AsyncAnthropic]
+ROAST_TOOL: ChatCompletionToolParam = {
+    "type": "function",
+    "function": {
+        "name": TOOL_NAME,
+        "description": (
+            "Submit the final roast of the repository. Call this exactly once with the score, "
+            "verdict title, Tanglish markdown roast, strengths, issues, and fix tips."
+        ),
+        "strict": True,
+        "parameters": ROAST_SCHEMA,
+    },
+}
+
+ClientFactory = Callable[[], AsyncOpenAI]
 
 
 # ---------------------------------------------------------------------------- output validation
@@ -197,7 +196,7 @@ class RoastIssueOutput(BaseModel):
 
 
 class RoastOutput(BaseModel):
-    """Validated ``submit_roast`` tool input."""
+    """Validated ``submit_roast`` function arguments."""
 
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
@@ -344,19 +343,27 @@ class UnusableResponseError(ValueError):
 
 
 def parse_roast_response(response: Any) -> RoastOutput:
-    """Extract and validate the ``submit_roast`` tool input from a Messages API response.
+    """Extract and validate the ``submit_roast`` arguments from a Chat Completions response.
 
     Raises:
-        UnusableResponseError: If the response was refused or hit ``max_tokens``.
-        ValueError: If the response has no ``submit_roast`` call.
-        ValidationError: If the tool input does not match :class:`RoastOutput`.
+        UnusableResponseError: If the model refused, was filtered, or hit the token limit.
+        ValueError: If the response has no ``submit_roast`` call or its arguments aren't JSON.
+        ValidationError: If the arguments do not match :class:`RoastOutput`.
     """
-    stop_reason = getattr(response, "stop_reason", None)
-    if stop_reason in UNUSABLE_STOP_REASONS:
-        raise UnusableResponseError(f"unusable stop_reason: {stop_reason}")
-    for block in getattr(response, "content", None) or []:
-        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == TOOL_NAME:
-            return RoastOutput.model_validate(block.input)
+    choices = getattr(response, "choices", None) or []
+    if not choices:
+        raise ValueError("no choices in response")
+    choice = choices[0]
+    finish_reason = getattr(choice, "finish_reason", None)
+    if finish_reason in UNUSABLE_FINISH_REASONS:
+        raise UnusableResponseError(f"unusable finish_reason: {finish_reason}")
+    message = getattr(choice, "message", None)
+    if getattr(message, "refusal", None):
+        raise UnusableResponseError("model refused")
+    for call in getattr(message, "tool_calls", None) or []:
+        function = getattr(call, "function", None)
+        if getattr(function, "name", None) == TOOL_NAME:
+            return RoastOutput.model_validate(json.loads(function.arguments))
     raise ValueError("no submit_roast tool call in response")
 
 
@@ -369,15 +376,17 @@ def _usage_tokens(response: Any) -> tuple[int, int]:
         value = getattr(usage, name, 0)
         return value if isinstance(value, int) else 0
 
-    input_tokens = (
-        _int("input_tokens") + _int("cache_creation_input_tokens") + _int("cache_read_input_tokens")
-    )
-    return input_tokens, _int("output_tokens")
+    return _int("prompt_tokens"), _int("completion_tokens")
 
 
-def _default_client_factory() -> AsyncAnthropic:
-    return AsyncAnthropic(
-        api_key=settings.ANTHROPIC_API_KEY,
+def _finish_reason(response: Any) -> str | None:
+    choices = getattr(response, "choices", None) or []
+    return getattr(choices[0], "finish_reason", None) if choices else None
+
+
+def _default_client_factory() -> AsyncOpenAI:
+    return AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
         timeout=REQUEST_TIMEOUT_SECONDS,
         max_retries=SDK_MAX_RETRIES,
     )
@@ -390,28 +399,20 @@ client_factory: ClientFactory = _default_client_factory
 # ---------------------------------------------------------------------------- orchestration
 
 
-async def _request_roast(client: AsyncAnthropic, system_prompt: str, user_prompt: str) -> Any:
-    # Current models (e.g. Sonnet 5.5 / Opus 5.5) reject forced tool_choice, so we use "auto"
-    # with a single allowed call; the system prompt requires calling submit_roast, and a missing
-    # call is treated as invalid output and retried.
-    system: list[TextBlockParam] = [
-        {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
+async def _request_roast(client: AsyncOpenAI, system_prompt: str, user_prompt: str) -> Any:
+    # Forced function call: the model must answer through submit_roast (strict schema). Parallel
+    # calls are disabled because strict structured outputs do not support them.
+    messages: list[ChatCompletionMessageParam] = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
     ]
-    tool_choice: ToolChoiceAutoParam = {"type": "auto", "disable_parallel_tool_use": True}
-    messages: list[MessageParam] = [{"role": "user", "content": user_prompt}]
-    # Thinking is left at the model default (adaptive; it cannot be disabled on current models).
-    # The refusal fallback is a beta body field, sent via extra_headers/extra_body so the call
-    # stays on the stable ``messages`` surface.
-    return await client.messages.create(
-        model=settings.ANTHROPIC_MODEL,
-        max_tokens=ROAST_MAX_TOKENS,
-        system=system,
-        tools=[ROAST_TOOL],
-        tool_choice=tool_choice,
+    return await client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        max_completion_tokens=ROAST_MAX_TOKENS,
         messages=messages,
-        output_config={"effort": ROAST_EFFORT},
-        extra_headers={"anthropic-beta": FALLBACK_BETA},
-        extra_body={"fallbacks": "default"},
+        tools=[ROAST_TOOL],
+        tool_choice={"type": "function", "function": {"name": TOOL_NAME}},
+        parallel_tool_calls=False,
     )
 
 
@@ -419,14 +420,14 @@ async def generate_roast(
     info: RepoInfo,
     analysis: AnalysisResult,
     *,
-    client: AsyncAnthropic | None = None,
+    client: AsyncOpenAI | None = None,
 ) -> RoastResult:
-    """Ask Claude for a structured Tanglish roast of an analyzed repo.
+    """Ask the model for a structured Tanglish roast of an analyzed repo.
 
     Args:
         info: Repository metadata.
         analysis: Analyzer output (sampled contents already redacted).
-        client: Optional Anthropic client (tests). When omitted, one is created from
+        client: Optional OpenAI client (tests). When omitted, one is created from
             :data:`client_factory` and closed afterwards.
 
     Returns:
@@ -437,8 +438,8 @@ async def generate_roast(
     """
     owns_client = client is None
     if client is None:
-        if not settings.ANTHROPIC_API_KEY:
-            logger.error("ANTHROPIC_API_KEY is not configured; cannot generate roast")
+        if not settings.OPENAI_API_KEY:
+            logger.error("OPENAI_API_KEY is not configured; cannot generate roast")
             raise RoastGenerationError()
         client = client_factory()
 
@@ -446,21 +447,15 @@ async def generate_roast(
     system_prompt = load_system_prompt()
     user_prompt = build_user_prompt(info, analysis)
     total_in = total_out = 0
-    model_used = settings.ANTHROPIC_MODEL
+    model_used = settings.OPENAI_MODEL
     output: RoastOutput | None = None
 
     try:
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
                 response = await _request_roast(client, system_prompt, user_prompt)
-            except (
-                anthropic.APITimeoutError,
-                anthropic.APIConnectionError,
-                anthropic.RateLimitError,
-                anthropic.APIStatusError,
-                anthropic.APIError,
-            ) as exc:
-                logger.exception("Claude API error for %s (%s)", repo_label, type(exc).__name__)
+            except openai.APIError as exc:  # timeouts, connection, rate limit, status errors
+                logger.exception("OpenAI API error for %s (%s)", repo_label, type(exc).__name__)
                 raise RoastGenerationError() from exc
 
             in_tokens, out_tokens = _usage_tokens(response)
@@ -474,24 +469,22 @@ async def generate_roast(
                 output = parse_roast_response(response)
                 break
             except UnusableResponseError:
-                # A refusal (after the server-side fallback) or a truncation would just repeat
-                # with an identical request, so fail cleanly instead of paying for it twice.
-                stop_details = getattr(response, "stop_details", None)
+                # A refusal, content filter or truncation would just repeat with an identical
+                # request, so fail cleanly instead of paying for it twice.
                 logger.warning(
-                    "Unusable roast response for %s (stop_reason=%s, category=%s); not retrying",
+                    "Unusable roast response for %s (finish_reason=%s); not retrying",
                     repo_label,
-                    getattr(response, "stop_reason", None),
-                    getattr(stop_details, "category", None),
+                    _finish_reason(response),
                 )
                 break
             except (ValueError, ValidationError) as exc:
                 error_count = exc.error_count() if isinstance(exc, ValidationError) else 1
                 logger.warning(
-                    "Invalid roast output for %s (attempt %d/%d, stop_reason=%s, errors=%d)",
+                    "Invalid roast output for %s (attempt %d/%d, finish_reason=%s, errors=%d)",
                     repo_label,
                     attempt,
                     MAX_ATTEMPTS,
-                    getattr(response, "stop_reason", None),
+                    _finish_reason(response),
                     error_count,
                 )
     finally:
