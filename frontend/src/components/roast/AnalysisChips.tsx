@@ -26,7 +26,7 @@ export function AnalysisChips({ analysis, maxLanguages = 5 }: AnalysisChipsProps
     <Wrap spacing={2} data-testid="analysis-chips">
       {languages.map((lang) => (
         <WrapItem key={lang.name}>
-          <Tag colorScheme="purple" variant="subtle" borderRadius="full">
+          <Tag colorScheme="brand" variant="subtle" borderRadius="full">
             <TagLabel>
               {lang.name} {lang.percent}%
             </TagLabel>
@@ -34,35 +34,35 @@ export function AnalysisChips({ analysis, maxLanguages = 5 }: AnalysisChipsProps
         </WrapItem>
       ))}
       <WrapItem>
-        <Tag variant="subtle" borderRadius="full">
-          <TagLabel>📁 {analysis.fileCount} files</TagLabel>
+        <Tag colorScheme="gray" variant="subtle" borderRadius="full">
+          <TagLabel> {analysis.fileCount} files</TagLabel>
         </Tag>
       </WrapItem>
       <WrapItem>
-        <Tag variant="subtle" borderRadius="full">
-          <TagLabel>🔀 {analysis.commitCount} commits</TagLabel>
+        <Tag colorScheme="gray" variant="subtle" borderRadius="full">
+          <TagLabel> {analysis.commitCount} commits</TagLabel>
         </Tag>
       </WrapItem>
       <WrapItem>
-        <Tag colorScheme={analysis.hasReadme ? 'green' : 'red'} variant="subtle" borderRadius="full">
+        <Tag colorScheme={analysis.hasReadme ? 'brand' : 'gray'} variant={analysis.hasReadme ? 'subtle' : 'outline'} borderRadius="full">
           <TagLabel>README {check(analysis.hasReadme)}</TagLabel>
         </Tag>
       </WrapItem>
       <WrapItem>
-        <Tag colorScheme={analysis.hasTests ? 'green' : 'red'} variant="subtle" borderRadius="full">
+        <Tag colorScheme={analysis.hasTests ? 'brand' : 'gray'} variant={analysis.hasTests ? 'subtle' : 'outline'} borderRadius="full">
           <TagLabel>Tests {check(analysis.hasTests)}</TagLabel>
         </Tag>
       </WrapItem>
       <WrapItem>
-        <Tag colorScheme={analysis.hasDependencyFile ? 'green' : 'red'} variant="subtle" borderRadius="full">
+        <Tag colorScheme={analysis.hasDependencyFile ? 'brand' : 'gray'} variant={analysis.hasDependencyFile ? 'subtle' : 'outline'} borderRadius="full">
           <TagLabel>Deps {check(analysis.hasDependencyFile)}</TagLabel>
         </Tag>
       </WrapItem>
       {analysis.hasEnvFileCommitted && (
         <WrapItem>
           <Tooltip label="Un .env file repo-la commit aayirukku. Udane remove pannu, keys rotate pannu!" hasArrow>
-            <Tag colorScheme="red" variant="solid" borderRadius="full">
-              <TagLabel>⚠️ .env committed</TagLabel>
+            <Tag colorScheme="brand" variant="solid" borderRadius="full">
+              <TagLabel> .env committed</TagLabel>
             </Tag>
           </Tooltip>
         </WrapItem>
@@ -70,9 +70,9 @@ export function AnalysisChips({ analysis, maxLanguages = 5 }: AnalysisChipsProps
       {analysis.secretsFoundCount !== undefined && analysis.secretsFoundCount > 0 && (
         <WrapItem>
           <Tooltip label="Possible secrets kandupidichom. Rotate pannu machan!" hasArrow>
-            <Tag colorScheme="red" variant="solid" borderRadius="full">
+            <Tag colorScheme="brand" variant="solid" borderRadius="full">
               <TagLabel>
-                🔑 {analysis.secretsFoundCount} secret{analysis.secretsFoundCount === 1 ? '' : 's'} found
+                {analysis.secretsFoundCount} secret{analysis.secretsFoundCount === 1 ? '' : 's'} found
               </TagLabel>
             </Tag>
           </Tooltip>

@@ -7,21 +7,10 @@ export interface PrimaryLinkButtonProps extends Omit<ButtonProps, 'children' | '
   children: ReactNode;
 }
 
-/** PrimaryButton look, rendered as a react-router Link (no Framer Motion so `as` typing stays intact). */
+/** PrimaryButton look, rendered as a react-router Link. */
 export function PrimaryLinkButton({ to, children, ...rest }: PrimaryLinkButtonProps) {
   return (
-    <Button
-      as={RouterLink}
-      to={to}
-      size="lg"
-      px={8}
-      color="white"
-      bg="fire.500"
-      transition="all 0.2s"
-      _hover={{ bg: 'fire.600', transform: 'translateY(-2px)', color: 'white' }}
-      _active={{ bg: 'fire.700', transform: 'scale(0.98)' }}
-      {...rest}
-    >
+    <Button as={RouterLink} to={to} size="lg" px={8} colorScheme="brand" {...rest}>
       {children}
     </Button>
   );

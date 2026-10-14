@@ -1,15 +1,14 @@
 import { Badge } from '@chakra-ui/react';
-import { scoreColorScheme } from '../../lib/format';
 
 export interface VerdictBadgeProps {
   verdictTitle: string;
   score?: number;
 }
 
-export function VerdictBadge({ verdictTitle, score }: VerdictBadgeProps) {
+export function VerdictBadge({ verdictTitle }: VerdictBadgeProps) {
   return (
     <Badge
-      colorScheme={score === undefined ? 'orange' : scoreColorScheme(score)}
+      colorScheme="brand"
       variant="subtle"
       fontSize={{ base: 'md', md: 'lg' }}
       px={4}

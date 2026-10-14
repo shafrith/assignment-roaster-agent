@@ -15,7 +15,7 @@ describe('RoastForm', () => {
   it('shows the no-login hint and disables submit while empty', () => {
     renderForm();
     expect(screen.getByText(ROAST_FORM_HINT)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Roast Me 🔥' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Roast Me' })).toBeDisabled();
   });
 
   it('shows the validation error on blur for an invalid URL', async () => {
@@ -45,7 +45,7 @@ describe('RoastForm', () => {
       .mockResolvedValue(makeRoastStatus({ shareSlug: 'xYz_42', status: 'pending', roast: null, analysis: null }));
     renderForm();
     await userEvent.type(screen.getByLabelText('GitHub repo URL'), '  https://github.com/machan/genai-hw  ');
-    await userEvent.click(screen.getByRole('button', { name: 'Roast Me 🔥' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Roast Me' }));
 
     expect(create).toHaveBeenCalledWith({ repoUrl: 'https://github.com/machan/genai-hw' });
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/r\/xYz_42$/));
@@ -58,7 +58,7 @@ describe('RoastForm', () => {
     renderForm();
     const input = screen.getByLabelText('GitHub repo URL');
     await userEvent.type(input, 'https://github.com/a/b');
-    await userEvent.click(screen.getByRole('button', { name: 'Roast Me 🔥' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Roast Me' }));
 
     const alert = await screen.findByTestId('create-error');
     expect(alert).toHaveTextContent('Innaikku 5 roast aachu machan, naalaikku vaa 😴');

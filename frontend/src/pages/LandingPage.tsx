@@ -4,7 +4,7 @@ import type { IconType } from 'react-icons';
 import { FiCpu, FiLink, FiZap } from 'react-icons/fi';
 import { ExampleRoastCard } from '../components/landing/ExampleRoastCard';
 import { RoastForm } from '../components/roast/RoastForm';
-import { GlassCard } from '../components/ui/GlassCard';
+import { Panel } from '../components/ui/Panel';
 import { MotionBox } from '../lib/motion';
 
 const container: Variants = {
@@ -59,8 +59,8 @@ export default function LandingPage() {
         >
           <VStack align={{ base: 'center', lg: 'start' }} textAlign={{ base: 'center', lg: 'left' }} spacing={6} flex="1">
             <MotionBox variants={rise}>
-              <Badge colorScheme="fire" variant="subtle" borderRadius="full" px={3} py={1} fontSize="xs">
-                For the GenAI community 🤖
+              <Badge colorScheme="brand" variant="subtle" borderRadius="full" px={3} py={1} fontSize="xs">
+                For the GenAI community
               </Badge>
             </MotionBox>
             <MotionBox variants={rise}>
@@ -72,8 +72,7 @@ export default function LandingPage() {
               >
                 <Text as="span" textStyle="accent">
                   Un assignment-a roast panna ready-a?
-                </Text>{' '}
-                🔥
+                </Text>
               </Heading>
             </MotionBox>
             <MotionBox variants={rise}>
@@ -93,7 +92,6 @@ export default function LandingPage() {
             w="full"
             maxW="lg"
             variants={rise}
-            whileHover={{ rotate: -0.5, y: -4 }}
           >
             <ExampleRoastCard />
           </MotionBox>
@@ -107,7 +105,7 @@ export default function LandingPage() {
           </VStack>
           <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
             {STEPS.map((step, index) => (
-              <GlassCard key={step.title} h="full">
+              <Panel key={step.title} h="full">
                 <VStack align="start" spacing={3}>
                   <HStack spacing={3}>
                     <Flex
@@ -115,7 +113,7 @@ export default function LandingPage() {
                       align="center"
                       justify="center"
                       borderRadius="xl"
-                      bg="fire.500"
+                      bg="brand.600"
                       color="white"
                     >
                       <Icon as={step.icon} boxSize={5} />
@@ -132,7 +130,7 @@ export default function LandingPage() {
                     {step.body}
                   </Text>
                 </VStack>
-              </GlassCard>
+              </Panel>
             ))}
           </SimpleGrid>
         </MotionBox>

@@ -7,7 +7,7 @@ import { RoastReport } from '../components/roast/RoastReport';
 import { RoastReportSkeleton } from '../components/roast/RoastReportSkeleton';
 import { RoastStatusLoader } from '../components/roast/RoastStatusLoader';
 import { ErrorState } from '../components/ui/ErrorState';
-import { GlassCard } from '../components/ui/GlassCard';
+import { Panel } from '../components/ui/Panel';
 import { PageWrapper } from '../components/ui/PageWrapper';
 import { PrimaryLinkButton } from '../components/ui/PrimaryLinkButton';
 import { useRoast } from '../hooks/useRoast';
@@ -16,7 +16,7 @@ import { isNotFoundError } from '../lib/httpErrors';
 import { getErrorMessage } from '../services/api';
 import type { RoastStatusResponse } from '../types/api';
 
-export const ROAST_NOT_FOUND_MESSAGE = 'Indha roast illa, illa private-a irukku 🤷';
+export const ROAST_NOT_FOUND_MESSAGE = 'Indha roast illa, illa private-a irukku';
 
 function BackHome() {
   return (
@@ -28,12 +28,12 @@ function BackHome() {
 
 function RoastYourOwnCta() {
   return (
-    <GlassCard disableHover textAlign="center" py={8}>
+    <Panel textAlign="center" py={8}>
       <VStack spacing={4}>
-        <Heading size="md">Innoru repo-vayum roast pannanuma? 🔥</Heading>
-        <PrimaryLinkButton to="/">Roast another repo 🔥</PrimaryLinkButton>
+        <Heading size="md">Innoru repo-vayum roast pannanuma?</Heading>
+        <PrimaryLinkButton to="/">Roast another repo</PrimaryLinkButton>
       </VStack>
-    </GlassCard>
+    </Panel>
   );
 }
 
@@ -48,14 +48,14 @@ function RoastBody({ data, isPollingTimedOut, onResumePolling }: RoastBodyProps)
 
   if (data.status === 'failed') {
     return (
-      <ErrorState title="Roast fail aayiduchu 😵" message={data.errorMessage ?? 'Edho thappa pochu.'} emoji="💥">
+      <ErrorState title="Roast fail aayiduchu" message={data.errorMessage ?? 'Edho thappa pochu.'}>
         <Text fontFamily="mono" fontSize="sm" color="text.muted">
           {repoLabel}
         </Text>
         {data.errorRetryable ? (
           <RetryButton shareSlug={data.shareSlug} />
         ) : (
-          <PrimaryLinkButton to="/">Pudhu roast pannu 🔥</PrimaryLinkButton>
+          <PrimaryLinkButton to="/">Pudhu roast pannu</PrimaryLinkButton>
         )}
       </ErrorState>
     );
@@ -63,7 +63,7 @@ function RoastBody({ data, isPollingTimedOut, onResumePolling }: RoastBodyProps)
 
   if (data.status === 'completed' && data.roast) {
     const score = formatScore(data.roast.score);
-    const title = `${repoLabel} got roasted: ${score}/10 🔥`;
+    const title = `${repoLabel} got roasted: ${score}/10`;
     const description = `${data.roast.verdictTitle} — Assignment Roaster`;
     return (
       <VStack align="stretch" spacing={6}>
@@ -93,13 +93,13 @@ function RoastBody({ data, isPollingTimedOut, onResumePolling }: RoastBodyProps)
       <ErrorState
         title="Romba neram aagudhu machan ⏳"
         message="Indha roast 10 nimishathukku mela cook aagudhu — edho stuck aayirukkalam. Konjam kazhichu status check pannu; fail aanaa Retry button varum."
-        emoji="🐢"
+       
       >
         <Text fontFamily="mono" fontSize="sm" color="text.muted">
           {repoLabel}
         </Text>
         <Button onClick={onResumePolling} leftIcon={<FiRefreshCw aria-hidden="true" />}>
-          Status check pannu 🔁
+          Status check pannu
         </Button>
       </ErrorState>
     );
@@ -118,9 +118,9 @@ export default function RoastPage() {
     body = (
       <VStack spacing={6} align="stretch">
         <Helmet>
-          <title>Roast not found 🤷 · Assignment Roaster</title>
+          <title>Roast not found · Assignment Roaster</title>
         </Helmet>
-        <ErrorState title="Roast kidaikala 🤷" message={ROAST_NOT_FOUND_MESSAGE} emoji="🔍" />
+        <ErrorState title="Roast kidaikala" message={ROAST_NOT_FOUND_MESSAGE} />
         <RoastYourOwnCta />
       </VStack>
     );

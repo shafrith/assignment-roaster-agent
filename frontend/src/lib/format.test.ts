@@ -9,19 +9,17 @@ import {
   formatRelativeTime,
   formatScore,
   isTerminalStatus,
-  scoreColorScheme,
+  SEVERITY_BADGE,
+  SEVERITY_ORDER,
 } from './format';
 
-describe('scoreColorScheme', () => {
-  it.each([
-    [0, 'red'],
-    [3.9, 'red'],
-    [4, 'orange'],
-    [6.9, 'orange'],
-    [7, 'green'],
-    [10, 'green'],
-  ])('%s → %s', (score, expected) => {
-    expect(scoreColorScheme(score)).toBe(expected);
+describe('SEVERITY_BADGE', () => {
+  it('uses only the two UI colors (blue for serious, gray for minor)', () => {
+    for (const severity of SEVERITY_ORDER) {
+      expect(['brand', 'gray']).toContain(SEVERITY_BADGE[severity].colorScheme);
+    }
+    expect(SEVERITY_BADGE.critical).toEqual({ colorScheme: 'brand', variant: 'solid' });
+    expect(SEVERITY_BADGE.low.colorScheme).toBe('gray');
   });
 });
 

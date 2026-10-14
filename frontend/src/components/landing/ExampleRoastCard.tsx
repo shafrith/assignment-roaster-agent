@@ -15,7 +15,7 @@ import {
 } from '@chakra-ui/react';
 import { FaGithub } from 'react-icons/fa';
 import { FiCheckCircle } from 'react-icons/fi';
-import { GlassCard } from '../ui/GlassCard';
+import { Panel } from '../ui/Panel';
 
 const SAMPLE_SCORE = 3.5;
 
@@ -36,26 +36,26 @@ const FIX_TIPS: string[] = [
 /** Static sample roast for the landing page — no API calls. */
 export function ExampleRoastCard() {
   return (
-    <GlassCard p={{ base: 5, md: 7 }} w="full" disableHover>
+    <Panel p={{ base: 5, md: 7 }} w="full">
       <HStack justify="space-between" align="start" spacing={4} mb={5}>
         <VStack align="start" spacing={2}>
           <HStack color="text.muted" fontSize="sm" spacing={2}>
             <Icon as={FaGithub} />
             <Text fontFamily="mono">someone/genai-week3-rag-bot</Text>
           </HStack>
-          <Badge colorScheme="red" variant="subtle" borderRadius="full" px={3} py={1}>
+          <Badge colorScheme="brand" variant="subtle" borderRadius="full" px={3} py={1}>
             Sample roast
           </Badge>
           <Heading size="md" textStyle="accent">
-            README Illaadha Rajini 🕶️
+            README Illaadha Rajini
           </Heading>
         </VStack>
         <CircularProgress
           value={SAMPLE_SCORE * 10}
           size="88px"
           thickness="10px"
-          color="red.400"
-          trackColor="whiteAlpha.200"
+          color="brand.500"
+          trackColor="gray.100"
           capIsRound
           flexShrink={0}
           aria-label={`Sample score ${SAMPLE_SCORE} out of 10`}
@@ -71,26 +71,26 @@ export function ExampleRoastCard() {
 
       <VStack align="stretch" spacing={3}>
         {ROAST_LINES.map((line) => (
-          <Box key={line} borderLeft="3px solid" borderColor="fire.500" pl={3}>
+          <Box key={line} borderLeft="3px solid" borderColor="brand.500" pl={3}>
             <Text fontSize="sm">{line}</Text>
           </Box>
         ))}
       </VStack>
 
-      <Divider my={5} borderColor="border.glass" />
+      <Divider my={5} borderColor="border.subtle" />
 
       <Text fontWeight="semibold" fontSize="sm" mb={3} color="accent">
-        Fix tips 🛠️
+        Fix tips
       </Text>
       <List spacing={2}>
         {FIX_TIPS.map((tip) => (
           <ListItem key={tip} fontSize="sm" color="text.muted" display="flex" alignItems="start">
-            <ListIcon as={FiCheckCircle} color="green.400" mt={1} />
+            <ListIcon as={FiCheckCircle} color="brand.500" mt={1} />
             {tip}
           </ListItem>
         ))}
       </List>
-    </GlassCard>
+    </Panel>
   );
 }
 

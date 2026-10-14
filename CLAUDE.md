@@ -142,6 +142,7 @@ const fetchSubmission = async (id: number): Promise<Submission> => {
 - ❌ Never use inline styles - use Chakra UI style props / theme
 - ❌ Never render roast markdown as raw HTML (sanitize)
 - ❌ Never use gradient colors (`bgGradient`, `linear-gradient`, gradient text) - use solid theme colors
+- ❌ Never add colors beyond the two-color palette: white + blue (`brand`), with gray for text/borders only - no red/green/orange status colors, no decorative emojis in UI chrome, light mode only
 
 ---
 

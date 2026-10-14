@@ -1,27 +1,15 @@
-import type { ButtonProps } from '@chakra-ui/react';
-import { forwardRef, type ReactNode } from 'react';
-import { MotionButton, type WithoutMotion } from '../../lib/motion';
+import { Button, type ButtonProps } from '@chakra-ui/react';
+import { forwardRef } from 'react';
 
-export type PrimaryButtonProps = WithoutMotion<Omit<ButtonProps, 'children'>> & { children?: ReactNode };
+export type PrimaryButtonProps = ButtonProps;
 
-/** Main call-to-action button: solid fire color (no gradients). */
+/** Main call-to-action button: solid blue. */
 export const PrimaryButton = forwardRef<HTMLButtonElement, PrimaryButtonProps>(
   function PrimaryButton({ children, ...rest }, ref) {
     return (
-      <MotionButton
-        ref={ref}
-        size="lg"
-        px={8}
-        color="white"
-        bg="fire.500"
-        _hover={{ bg: 'fire.600' }}
-        _active={{ bg: 'fire.700' }}
-        whileHover={{ scale: 1.02, y: -2 }}
-        whileTap={{ scale: 0.98 }}
-        {...rest}
-      >
+      <Button ref={ref} size="lg" px={8} colorScheme="brand" {...rest}>
         {children}
-      </MotionButton>
+      </Button>
     );
   },
 );

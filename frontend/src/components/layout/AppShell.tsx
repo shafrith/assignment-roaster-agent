@@ -14,9 +14,6 @@ function Logo() {
         textStyle="accent"
       >
         Assignment Roaster
-      </Text>{' '}
-      <Text as="span" fontSize={{ base: 'md', md: 'xl' }}>
-        🔥
       </Text>
     </Link>
   );
@@ -35,10 +32,9 @@ export function AppShell({ children }: AppShellProps) {
         position="sticky"
         top={0}
         zIndex="sticky"
-        backdropFilter="blur(16px)"
-        bg="bg.glass"
+        bg="bg.surface"
         borderBottom="1px solid"
-        borderColor="border.glass"
+        borderColor="border.subtle"
       >
         <Container maxW="6xl" px={4}>
           <Flex h={16} align="center" gap={2}>
@@ -55,10 +51,10 @@ export function AppShell({ children }: AppShellProps) {
         {children}
       </Container>
 
-      <Box as="footer" borderTop="1px solid" borderColor="border.glass" py={6}>
+      <Box as="footer" borderTop="1px solid" borderColor="border.subtle" py={6}>
         <Container maxW="6xl" px={4}>
           <Text textAlign="center" fontSize="sm" color="text.muted">
-            Made with ❤️ &amp; 🌶️ for the GenAI community
+            Built for the GenAI community
           </Text>
         </Container>
       </Box>

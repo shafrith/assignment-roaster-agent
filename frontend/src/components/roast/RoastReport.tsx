@@ -1,7 +1,7 @@
 import { Box, Divider, Flex, HStack, Heading, Link, SimpleGrid, Text, VStack } from '@chakra-ui/react';
 import { FiGithub } from 'react-icons/fi';
 import type { AnalysisView, RoastResponse } from '../../types/api';
-import { GlassCard } from '../ui/GlassCard';
+import { Panel } from '../ui/Panel';
 import { AnalysisChips } from './AnalysisChips';
 import { FixTipsList } from './FixTipsList';
 import { IssuesList } from './IssuesList';
@@ -34,7 +34,7 @@ export interface RoastReportProps {
 export function RoastReport({ roast, analysis, repo, share }: RoastReportProps) {
   return (
     <VStack align="stretch" spacing={6} data-testid="roast-report">
-      <GlassCard disableHover>
+      <Panel>
         <Flex direction={{ base: 'column', md: 'row' }} align="center" gap={{ base: 6, md: 10 }}>
           <ScoreGauge score={roast.score} />
           <VStack align={{ base: 'center', md: 'start' }} spacing={3} flex="1" textAlign={{ base: 'center', md: 'left' }}>
@@ -56,35 +56,35 @@ export function RoastReport({ roast, analysis, repo, share }: RoastReportProps) 
         </Flex>
         {analysis && (
           <>
-            <Divider my={5} borderColor="border.glass" />
+            <Divider my={5} borderColor="border.subtle" />
             <AnalysisChips analysis={analysis} />
           </>
         )}
-      </GlassCard>
+      </Panel>
 
-      <GlassCard disableHover>
+      <Panel>
         <Heading as="h2" size="md" mb={4}>
-          The Roast 🔥
+          The Roast
         </Heading>
         <RoastMarkdown markdown={roast.roastText} />
-      </GlassCard>
+      </Panel>
 
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
-        <GlassCard disableHover>
+        <Panel>
           <StrengthsList strengths={roast.strengths} />
-        </GlassCard>
-        <GlassCard disableHover>
+        </Panel>
+        <Panel>
           <FixTipsList tips={roast.fixTips} />
-        </GlassCard>
+        </Panel>
       </SimpleGrid>
 
-      <GlassCard disableHover>
+      <Panel>
         <IssuesList issues={roast.issues} />
-      </GlassCard>
+      </Panel>
 
       <Box>
         <Text fontSize="xs" color="text.muted" textAlign="center">
-          Roast is for fun 😄 — fix tips are for real.
+          Roast is for fun — fix tips are for real.
         </Text>
       </Box>
     </VStack>

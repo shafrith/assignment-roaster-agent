@@ -18,10 +18,10 @@ export function RetryButton({ shareSlug }: RetryButtonProps) {
         isLoading={mutation.isPending}
         loadingText="Retrying..."
       >
-        Retry pannu 🔁
+        Retry pannu
       </PrimaryButton>
       {mutation.isError && (
-        <Alert status="error" borderRadius="md">
+        <Alert status="error" colorScheme="brand" borderRadius="md">
           <AlertIcon />
           <AlertDescription>{getErrorMessage(mutation.error)}</AlertDescription>
         </Alert>

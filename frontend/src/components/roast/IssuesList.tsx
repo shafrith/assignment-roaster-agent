@@ -1,5 +1,5 @@
 import { Badge, Box, Code, HStack, Heading, Text, VStack, Wrap } from '@chakra-ui/react';
-import { SEVERITY_COLOR_SCHEME, SEVERITY_ORDER, formatCategory } from '../../lib/format';
+import { SEVERITY_BADGE, SEVERITY_ORDER, formatCategory } from '../../lib/format';
 import type { RoastIssue, Severity } from '../../types/api';
 
 export interface IssuesListProps {
@@ -13,19 +13,19 @@ function groupBySeverity(issues: RoastIssue[]): [Severity, RoastIssue[]][] {
   ]).filter(([, group]) => group.length > 0);
 }
 
-/** Issues grouped by severity (critical → low) as cards with colored badges. */
+/** Issues grouped by severity (critical → low). */
 export function IssuesList({ issues }: IssuesListProps) {
   const groups = groupBySeverity(issues);
   return (
     <VStack align="stretch" spacing={4}>
       <Heading as="h3" size="md">
-        Problems list 🚨
+        Problems list
       </Heading>
-      {groups.length === 0 && <Text color="text.muted">Issues onnum illa! Nambave mudiyala 😮</Text>}
+      {groups.length === 0 && <Text color="text.muted">Issues onnum illa! Nambave mudiyala</Text>}
       {groups.map(([severity, group]) => (
         <VStack key={severity} align="stretch" spacing={2} data-testid={`issues-${severity}`}>
           <HStack>
-            <Badge colorScheme={SEVERITY_COLOR_SCHEME[severity]} variant="solid" textTransform="uppercase">
+            <Badge {...SEVERITY_BADGE[severity]} textTransform="uppercase">
               {severity}
             </Badge>
             <Text fontSize="sm" color="text.muted">
@@ -38,13 +38,13 @@ export function IssuesList({ issues }: IssuesListProps) {
               p={3}
               borderRadius="lg"
               borderWidth="1px"
-              borderColor="border.glass"
-              borderLeftWidth="4px"
-              borderLeftColor={`${SEVERITY_COLOR_SCHEME[severity]}.400`}
-              bg="bg.glass"
+              borderColor="border.subtle"
+              borderLeftWidth="3px"
+              borderLeftColor={SEVERITY_BADGE[severity].colorScheme === 'brand' ? 'brand.500' : 'gray.300'}
+              bg="bg.surface"
             >
               <Wrap spacing={2} mb={1} align="center">
-                <Badge colorScheme={SEVERITY_COLOR_SCHEME[severity]} variant="subtle">
+                <Badge {...SEVERITY_BADGE[severity]}>
                   {severity}
                 </Badge>
                 <Badge variant="outline" colorScheme="gray" textTransform="none">

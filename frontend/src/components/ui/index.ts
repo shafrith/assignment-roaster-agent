@@ -1,4 +1,4 @@
-export { GlassCard } from './GlassCard';
+export { Panel } from './Panel';
 export { PrimaryButton } from './PrimaryButton';
 export { PrimaryLinkButton } from './PrimaryLinkButton';
 export { PageWrapper } from './PageWrapper';

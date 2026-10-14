@@ -61,14 +61,14 @@ const components: Components = {
   ),
   li: ({ children }) => <ListItem>{children}</ListItem>,
   blockquote: ({ children }) => (
-    <Box as="blockquote" borderLeftWidth="4px" borderColor="fire.400" pl={4} py={1} my={3} color="text.muted">
+    <Box as="blockquote" borderLeftWidth="4px" borderColor="brand.200" pl={4} py={1} my={3} color="text.muted">
       {children}
     </Box>
   ),
   pre: ({ children }) => (
     <Box
       as="pre"
-      bg="blackAlpha.500"
+      bg="bg.subtle"
       p={4}
       my={3}
       borderRadius="md"
@@ -81,11 +81,11 @@ const components: Components = {
     </Box>
   ),
   code: ({ children }) => (
-    <Code fontFamily="mono" fontSize="0.9em" px={1} colorScheme="orange">
+    <Code fontFamily="mono" fontSize="0.9em" px={1} colorScheme="gray">
       {children}
     </Code>
   ),
-  hr: () => <Divider my={4} borderColor="border.glass" />,
+  hr: () => <Divider my={4} borderColor="border.subtle" />,
   strong: ({ children }) => (
     <Text as="strong" fontWeight="bold">
       {children}

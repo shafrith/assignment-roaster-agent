@@ -53,9 +53,9 @@ describe('RoastReport', () => {
   it('shows friendly empty states', () => {
     const empty: RoastResponse = { ...roastFixture, strengths: [], issues: [], fixTips: [] };
     renderReport({ roast: empty, analysis: null });
-    expect(screen.getByText('Honestly... onnum kandupidika mudiyala 😬')).toBeInTheDocument();
-    expect(screen.getByText('Fix panna onnum illa. Semma! 🎉')).toBeInTheDocument();
-    expect(screen.getByText('Issues onnum illa! Nambave mudiyala 😮')).toBeInTheDocument();
+    expect(screen.getByText('Honestly... onnum kandupidika mudiyala')).toBeInTheDocument();
+    expect(screen.getByText('Fix panna onnum illa. Semma!')).toBeInTheDocument();
+    expect(screen.getByText('Issues onnum illa! Nambave mudiyala')).toBeInTheDocument();
     expect(screen.queryByTestId('analysis-chips')).not.toBeInTheDocument();
   });
 
@@ -79,7 +79,7 @@ describe('RoastReport', () => {
     expect(wa).not.toHaveAttribute('href');
     expect(x).toHaveAttribute('aria-disabled', 'true');
     expect(x).not.toHaveAttribute('href');
-    expect(screen.getByTestId('share-bar')).toHaveTextContent('🔒 Private roast');
+    expect(screen.getByTestId('share-bar')).toHaveTextContent('Private roast');
   });
 
   it('public roast: share links point at the public URL', async () => {
@@ -95,7 +95,7 @@ describe('RoastReport', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Copy public roast link' }));
     expect(writeText).toHaveBeenCalledWith(publicUrl);
-    expect(await screen.findByText('Link copy aayiduchu! 📋')).toBeInTheDocument();
+    expect(await screen.findByText('Link copy aayiduchu!')).toBeInTheDocument();
   });
 });
 

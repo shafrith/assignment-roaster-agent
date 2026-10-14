@@ -1,10 +1,10 @@
-import { Box, Circle, HStack, Heading, Text, VStack } from '@chakra-ui/react';
+import { Box, Circle, HStack, Heading, Spinner, Text, VStack } from '@chakra-ui/react';
 import { AnimatePresence } from 'framer-motion';
 import { Fragment, useEffect, useState } from 'react';
 import { FiCheck } from 'react-icons/fi';
 import { MotionBox } from '../../lib/motion';
 import type { SubmissionStatus } from '../../types/api';
-import { GlassCard } from '../ui/GlassCard';
+import { Panel } from '../ui/Panel';
 import { LOADING_LINES, LOADING_LINE_INTERVAL_MS } from './loadingLines';
 
 const STEPS = ['Analyzing', 'Roasting', 'Done'] as const;
@@ -30,7 +30,7 @@ export interface RoastStatusLoaderProps {
   lines?: readonly string[];
 }
 
-/** Animated in-progress view: bouncing fire, step indicator, rotating Tanglish lines. */
+/** In-progress view: spinner, step indicator, rotating Tanglish lines. */
 export function RoastStatusLoader({
   status,
   repoLabel,
@@ -49,16 +49,9 @@ export function RoastStatusLoader({
   }, [intervalMs, lines.length]);
 
   return (
-    <GlassCard disableHover maxW="2xl" mx="auto" py={{ base: 8, md: 12 }} data-testid="roast-status-loader">
+    <Panel maxW="2xl" mx="auto" py={{ base: 8, md: 12 }} data-testid="roast-status-loader">
       <VStack spacing={8} textAlign="center">
-        <MotionBox
-          fontSize={{ base: '6xl', md: '7xl' }}
-          animate={{ scale: [1, 1.15, 1], rotate: [0, -6, 6, 0] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-          aria-hidden="true"
-        >
-          🔥
-        </MotionBox>
+        <Spinner size="xl" thickness="4px" speed="0.8s" color="brand.500" emptyColor="gray.100" />
 
         <VStack spacing={1}>
           <Heading size="lg">Roast cooking aagudhu...</Heading>
@@ -76,15 +69,15 @@ export function RoastStatusLoader({
             return (
               <Fragment key={step}>
                 {index > 0 && (
-                  <Box flex="1" h="2px" bg={index <= current ? 'fire.400' : 'border.glass'} borderRadius="full" />
+                  <Box flex="1" h="2px" bg={index <= current ? 'brand.500' : 'border.subtle'} borderRadius="full" />
                 )}
                 <VStack spacing={1} role="listitem" aria-current={isActive ? 'step' : undefined}>
                   <Circle
                     size={8}
-                    bg={isDone ? 'fire.500' : isActive ? 'fire.400' : 'bg.glass'}
+                    bg={isDone || isActive ? 'brand.600' : 'bg.surface'}
                     borderWidth="1px"
-                    borderColor={isDone || isActive ? 'fire.400' : 'border.glass'}
-                    color="white"
+                    borderColor={isDone || isActive ? 'brand.600' : 'border.subtle'}
+                    color={isDone || isActive ? 'white' : 'text.muted'}
                     fontSize="sm"
                     fontWeight="bold"
                   >
@@ -115,7 +108,7 @@ export function RoastStatusLoader({
           </AnimatePresence>
         </Box>
       </VStack>
-    </GlassCard>
+    </Panel>
   );
 }
 

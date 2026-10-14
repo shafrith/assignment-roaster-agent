@@ -68,7 +68,8 @@ export function RoastForm() {
                 bg="bg.surface"
                 fontFamily="mono"
                 fontSize="md"
-                focusBorderColor="fire.400"
+                focusBorderColor="brand.500"
+                errorBorderColor="brand.700"
               />
             </InputGroup>
             {validationError ? (
@@ -83,12 +84,12 @@ export function RoastForm() {
             loadingText="Roast start aagudhu..."
             isDisabled={isEmpty}
           >
-            Roast Me 🔥
+            Roast Me
           </PrimaryButton>
         </Stack>
 
         {createMutation.isError && (
-          <Alert status="error" borderRadius="lg" data-testid="create-error">
+          <Alert status="error" colorScheme="brand" borderRadius="lg" data-testid="create-error">
             <AlertIcon />
             <AlertDescription>{getErrorMessage(createMutation.error)}</AlertDescription>
           </Alert>

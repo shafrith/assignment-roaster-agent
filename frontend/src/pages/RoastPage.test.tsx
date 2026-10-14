@@ -65,7 +65,7 @@ describe('RoastPage', () => {
     const retry = vi.spyOn(roastService, 'retry').mockResolvedValue(makeRoastStatus({ status: 'pending', ...inProgress }));
     renderAt('/r/abc123');
 
-    expect(await screen.findByText('Roast fail aayiduchu 😵')).toBeInTheDocument();
+    expect(await screen.findByText('Roast fail aayiduchu')).toBeInTheDocument();
     expect(screen.getByText('AI busy machan 😴')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Retry pannu/ }));
     expect(retry).toHaveBeenCalledWith('abc123');

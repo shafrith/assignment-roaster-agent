@@ -18,9 +18,9 @@ export function ShareBar({ shareSlug, score, isPublic }: ShareBarProps) {
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      toast({ title: 'Link copy aayiduchu! 📋', status: 'success', duration: 2500 });
+      toast({ title: 'Link copy aayiduchu!', status: 'info', duration: 2500 });
     } catch {
-      toast({ title: 'Copy panna mudiyala 😕', description: url, status: 'error', duration: 5000 });
+      toast({ title: 'Copy panna mudiyala', description: url, status: 'info', duration: 5000 });
     }
   };
 
@@ -46,7 +46,7 @@ export function ShareBar({ shareSlug, score, isPublic }: ShareBarProps) {
             target="_blank"
             rel="noopener noreferrer"
             leftIcon={<FaWhatsapp aria-hidden="true" />}
-            colorScheme="green"
+            variant="outline"
             size="sm"
             isDisabled={!isPublic}
             aria-disabled={!isPublic}
@@ -62,7 +62,7 @@ export function ShareBar({ shareSlug, score, isPublic }: ShareBarProps) {
             target="_blank"
             rel="noopener noreferrer"
             leftIcon={<FaXTwitter aria-hidden="true" />}
-            colorScheme="gray"
+            variant="outline"
             size="sm"
             isDisabled={!isPublic}
             aria-disabled={!isPublic}
@@ -75,7 +75,7 @@ export function ShareBar({ shareSlug, score, isPublic }: ShareBarProps) {
       {!isPublic && (
         <HStack>
           <Text fontSize="sm" color="text.muted">
-            🔒 Private roast. Share panna mudhalla public-a maathu.
+            Private roast. Share panna mudhalla public-a maathu.
           </Text>
         </HStack>
       )}

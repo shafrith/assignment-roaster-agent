@@ -1,29 +1,13 @@
 import type { Severity, SubmissionStatus } from '../types/api';
 
-export type ScoreColorScheme = 'red' | 'orange' | 'green';
-
-/** Score color scheme: red < 4, orange < 7, green >= 7. */
-export function scoreColorScheme(score: number): ScoreColorScheme {
-  if (score < 4) return 'red';
-  if (score < 7) return 'orange';
-  return 'green';
-}
-
 export const SEVERITY_ORDER: Severity[] = ['critical', 'high', 'medium', 'low'];
 
-export const SEVERITY_COLOR_SCHEME: Record<Severity, string> = {
-  critical: 'red',
-  high: 'orange',
-  medium: 'yellow',
-  low: 'gray',
-};
-
-export const STATUS_COLOR_SCHEME: Record<SubmissionStatus, string> = {
-  pending: 'gray',
-  analyzing: 'blue',
-  roasting: 'orange',
-  completed: 'green',
-  failed: 'red',
+/** Severity badges use only the two UI colors: blue for serious issues, gray for minor ones. */
+export const SEVERITY_BADGE: Record<Severity, { colorScheme: 'brand' | 'gray'; variant: 'solid' | 'subtle' }> = {
+  critical: { colorScheme: 'brand', variant: 'solid' },
+  high: { colorScheme: 'brand', variant: 'subtle' },
+  medium: { colorScheme: 'gray', variant: 'solid' },
+  low: { colorScheme: 'gray', variant: 'subtle' },
 };
 
 export const STATUS_LABEL: Record<SubmissionStatus, string> = {

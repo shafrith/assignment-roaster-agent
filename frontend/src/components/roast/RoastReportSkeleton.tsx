@@ -1,10 +1,10 @@
 import { Flex, Skeleton, SkeletonCircle, SkeletonText, VStack } from '@chakra-ui/react';
-import { GlassCard } from '../ui/GlassCard';
+import { Panel } from '../ui/Panel';
 
 export function RoastReportSkeleton() {
   return (
     <VStack align="stretch" spacing={6} data-testid="roast-report-skeleton" aria-busy="true" aria-label="Loading roast">
-      <GlassCard disableHover>
+      <Panel>
         <Flex direction={{ base: 'column', md: 'row' }} align="center" gap={8}>
           <SkeletonCircle size="36" />
           <VStack align="stretch" flex="1" spacing={3} w="full">
@@ -13,10 +13,10 @@ export function RoastReportSkeleton() {
             <Skeleton h={8} w="50%" />
           </VStack>
         </Flex>
-      </GlassCard>
-      <GlassCard disableHover>
+      </Panel>
+      <Panel>
         <SkeletonText noOfLines={8} spacing={4} />
-      </GlassCard>
+      </Panel>
     </VStack>
   );
 }
